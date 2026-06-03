@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trichrome Lung Quant — Sandbo Lab (v2)</title>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
+<script>
+(function(){
+  function load(src){var s=document.createElement('script');s.src=src;s.async=false;document.head.appendChild(s);}
+  window.addEventListener('DOMContentLoaded',function(){
+    if(typeof UTIF==='undefined'){load('https://unpkg.com/utif@3.1.0/UTIF.min.js');}
+    setTimeout(function(){if(typeof UTIF==='undefined'){load('https://cdnjs.cloudflare.com/ajax/libs/UTIF.js/3.1.0/UTIF.min.js');}},150);
+  });
+})();
+</script>
+<style>
+  :root{
+    --paper:#f6f4ef; --panel:#fffdf9; --ink:#22262b; --muted:#6b6f76; --faint:#9a9ea5;
+    --line:#e3ded3; --line2:#d2ccbd;
+    --accent:#146b7e; --collagen:#1f7a9c; --tissue:#c25b86; --dense:#b9760f; --air:#efece4;
+    --airway:#4a4a52; --peri:#d6b948; --artifact:#a049a0;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:22px 22px 80px}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:1.5px solid var(--ink);padding-bottom:12px;margin-bottom:6px}
+  header.top h1{font-family:var(--serif);font-weight:600;font-size:25px;margin:0;letter-spacing:.2px}
+  header.top h1 .ver{font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:500;margin-left:8px;padding:2px 6px;border:1px solid var(--accent);border-radius:3px;vertical-align:middle}
+  header.top .sub{color:var(--muted);font-size:12.5px;letter-spacing:.04em}
+  .lede{color:var(--muted);font-size:13px;margin:10px 0 18px;max-width:780px}
+  .small-caps{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .grid{display:grid;grid-template-columns:228px minmax(0,1fr) 312px;gap:18px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+  .panel h2{font-family:var(--serif);font-size:15px;margin:0 0 10px;font-weight:600}
+  .drop{border:1.5px dashed var(--line2);border-radius:7px;padding:16px 12px;text-align:center;cursor:pointer;transition:.15s;background:#fff}
+  .drop:hover,.drop.hot{border-color:var(--accent);background:#f0f6f7}
+  .drop .big{font-size:13px;font-weight:600}
+  .drop .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+  input[type=file]{display:none}
+  .strip{margin-top:12px;display:flex;flex-direction:column;gap:6px;max-height:560px;overflow:auto}
+  .thumb{display:flex;gap:9px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:#fff}
+  .thumb.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .thumb canvas{width:46px;height:34px;object-fit:cover;border-radius:3px;background:#eee;flex:none}
+  .thumb .nm{font-size:11.5px;line-height:1.25;word-break:break-all}
+  .thumb .mini{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .thumb .sc{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--accent);flex:none}
+  .thumb .rm{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1}
+  .thumb .rm:hover{color:var(--tissue)}
+  .stage-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .toggles{display:flex;gap:6px;align-items:center}
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:6px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
+  .seg button.on{background:var(--ink);color:#fff}
+  .canvas-area{position:relative;background:#fbfaf6;border:1px solid var(--line);border-radius:7px;overflow:hidden;min-height:220px;display:flex;align-items:center;justify-content:center}
+  #view{display:block;max-width:100%;cursor:crosshair;touch-action:none}
+  .roihint{position:absolute;top:8px;left:10px;background:rgba(34,38,43,.78);color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;pointer-events:none}
+  .empty{color:var(--faint);font-size:13px;padding:60px 20px;text-align:center}
+  .roi-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .btn{border:1px solid var(--line2);background:#fff;border-radius:6px;padding:6px 11px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+  .btn:hover{background:#f0f6f7;border-color:var(--accent)}
+  .btn.solid{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.solid:hover{background:#0f5867}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .chk input{cursor:pointer}
+  .err{background:#fbe9e9;border:1px solid #e2b1b1;color:#8a2424;font-size:11.5px;padding:6px 10px;border-radius:5px;margin:6px 0;font-family:var(--mono);white-space:pre-wrap;display:none}
+  .warn{background:#fbf5e6;border:1px solid #e0cf8d;color:#7a5d12;font-size:11px;padding:5px 9px;border-radius:5px;margin:6px 0;display:none}
+  .mrow{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line)}
+  .mrow:last-child{border-bottom:none}
+  .mrow .lab{font-size:12.5px}
+  .mrow .lab small{display:block;color:var(--faint);font-size:10.5px;letter-spacing:.02em}
+  .mrow .val{font-family:var(--mono);font-size:17px;font-weight:500}
+  .mrow .val small{font-size:10.5px;color:var(--muted)}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .ash{display:flex;align-items:center;gap:8px;margin:6px 0 2px}
+  .estbox{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#eef5f6;border:1px solid #bcdce1;border-radius:7px;padding:9px 12px;margin:-2px 0 3px}
+  .estgrade{font-family:var(--mono);font-size:27px;font-weight:600;line-height:1;color:var(--accent)}
+  .estwhy{font-size:11px;color:var(--muted);margin:0 0 12px;min-height:14px;line-height:1.35}
+  select,input[type=text]{font-family:var(--sans);font-size:13px;padding:6px 8px;border:1px solid var(--line2);border-radius:6px;background:#fff;color:var(--ink)}
+  select{cursor:pointer}
+  textarea{width:100%;font-family:var(--sans);font-size:12.5px;padding:7px 8px;border:1px solid var(--line2);border-radius:6px;resize:vertical;min-height:42px}
+  details.controls{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  details.controls>summary{cursor:pointer;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;list-style:none}
+  details.controls>summary::-webkit-details-marker{display:none}
+  details.controls>summary::before{content:"▸ ";color:var(--faint)}
+  details.controls[open]>summary::before{content:"▾ "}
+  .ctl{margin:11px 0}
+  .ctl label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+  .ctl label b{font-family:var(--mono);color:var(--ink);font-weight:500}
+  input[type=range]{width:100%}
+  .ctl.dual{display:flex;gap:10px}.ctl.dual>div{flex:1}
+  .sec-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 0 4px;padding-top:8px;border-top:1px dashed var(--line)}
+  .tablewrap{overflow-x:auto;margin-top:8px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;border-bottom:1.5px solid var(--line2)}
+  td.l,th.l{text-align:left}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#f0f6f7}
+  tbody tr.active{background:#e9f2f3}
+  td .mono{font-family:var(--mono)}
+  .corr{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px}
+  .corr .stat{font-family:var(--mono)}
+  .corr b{color:var(--accent)}
+  .ref table{font-size:12px}
+  .ref td.l{white-space:normal;max-width:560px;color:var(--muted)}
+  .ref td:first-child{font-family:var(--mono);font-weight:600;color:var(--ink);text-align:center;width:34px}
+  .footnote{color:var(--faint);font-size:11.5px;margin-top:8px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}
+  .legend span b{font-weight:500;color:var(--ink)}
+  .bar{height:9px;border-radius:3px;display:flex;overflow:hidden;border:1px solid var(--line);margin-top:4px}
+  .bar i{display:block;height:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Trichrome Lung Quantifier<span class="ver">v2 · 06.02.2026</span></h1>
+      <div class="sub">Masson's trichrome fibrosis quantification · Sandbo Lab prototype</div>
+    </div>
+    <div class="sub" style="text-align:right">by Tristan Tetting and Maggie Osterhaus</div>
+  </header>
+  <p class="lede">Upload lung screenshots. The tool auto-detects large airways and excludes a small ring around them (peribronchial walls are anatomically thicker and confound percent-collagen). The Ashcroft estimate is driven by <b>wall thickness</b> and <b>fibrotic-mass area</b>, not just collagen percent, so it works even when the stain reads pink/purple rather than classic blue. <b>A grade is always produced</b>; if exclusions are too aggressive a safety fallback drops them one tier at a time and tells you.</p>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Images</h2>
+      <label class="drop" id="drop">
+        <div class="big">Drop or click to add</div>
+        <div class="hint">JPG · PNG · TIFF · multiple at once</div>
+        <input type="file" id="file" accept="image/*,.tif,.tiff" multiple>
+      </label>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div class="panel">
+      <div class="stage-head">
+        <h2 style="margin:0">Field viewer</h2>
+        <div class="toggles">
+          <label class="chk" title="Tint excluded airways/peri-airway/artifact regions in the classified view"><input type="checkbox" id="showExcl" checked> show exclusions</label>
+          <div class="seg" id="viewseg">
+            <button data-v="orig" class="on">Original</button>
+            <button data-v="overlay">Classified</button>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-area" id="area">
+        <div class="empty" id="empty">No image selected.<br>Add images on the left to begin.</div>
+        <canvas id="view" style="display:none"></canvas>
+        <div class="roihint" id="roihint" style="display:none">drag to set ROI</div>
+      </div>
+      <div class="roi-row">
+        <span class="small-caps">ROI</span>
+        <span id="roitxt" class="mono" style="font-family:var(--mono)">full image</span>
+        <button class="btn" id="roireset" style="margin-left:auto">Use full image</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--collagen)"></span><b>collagen</b> (blue)</span>
+        <span><span class="swatch" style="background:var(--tissue)"></span><b>tissue/cells</b> (red·pink·purple)</span>
+        <span><span class="swatch" style="background:var(--air)"></span><b>airspace</b> (alveolar)</span>
+        <span><span class="swatch" style="background:var(--airway)"></span><b>airway</b> (excluded)</span>
+        <span><span class="swatch" style="background:var(--peri)"></span><b>peri-airway buffer</b></span>
+        <span><span class="swatch" style="background:var(--artifact)"></span><b>artifact</b> (auto-mask)</span>
+      </div>
+
+      <details class="controls" id="controls">
+        <summary>Classification &amp; exclusion thresholds (global · recorded in export)</summary>
+        <div class="sec-title" style="border-top:none;padding-top:0;margin-top:6px">Pixel classification</div>
+        <div class="ctl"><label>Airspace brightness ≥ <b id="lwv">0.82</b></label><input type="range" id="whiteV" min="0.5" max="1" step="0.01" value="0.82"></div>
+        <div class="ctl"><label>Airspace max saturation ≤ <b id="lws">0.12</b></label><input type="range" id="whiteS" min="0.02" max="0.4" step="0.01" value="0.12"></div>
+        <div class="ctl dual">
+          <div><label>Collagen hue min <b id="lhmin">165°</b></label><input type="range" id="hmin" min="80" max="200" step="1" value="165"></div>
+          <div><label>Collagen hue max <b id="lhmax">255°</b></label><input type="range" id="hmax" min="200" max="300" step="1" value="255"></div>
+        </div>
+        <div class="ctl"><label>Collagen min saturation ≥ <b id="lcs">0.10</b></label><input type="range" id="colS" min="0.03" max="0.5" step="0.01" value="0.10"></div>
+
+        <div class="sec-title">Airway detection &amp; peri-airway exclusion</div>
+        <div class="ctl"><label>Airway when airspace blob ≥ <b id="lawm">8×</b> median alveolus</label><input type="range" id="awMult" min="2" max="30" step="0.5" value="8"></div>
+        <div class="ctl"><label>Peri-airway buffer <b id="lpb">12 px</b></label><input type="range" id="periBuf" min="0" max="40" step="1" value="12"></div>
+        <label class="chk" style="margin:6px 0 2px"><input type="checkbox" id="artMask"> Auto-mask corner artifacts (navigator thumbnail, scale bar, dark text panels)</label>
+
+        <div class="sec-title">Fibrotic-mass detector</div>
+        <div class="ctl"><label>Tissue pixel is a "mass" if dist. to airspace &gt; <b id="lmd_px">6 px</b></label><input type="range" id="massDist" min="2" max="20" step="1" value="6"></div>
+
+        <button class="btn" id="recalcAll" style="margin-top:6px">Recompute all images with these settings</button>
+        <p class="footnote">Hue defaults cover blue→teal collagen. <b>Airway detection</b> erodes the airspace mask 2 px first (so alveoli joined by thin wall gaps don't merge into one giant "airway"), then flags eroded components ≥ N× median alveolus AND ≤ 15% of ROI. The peri-airway buffer is excluded so peribronchial wall thickening cannot inflate the score. Auto-mask off by default because saturated pink tissue in corners can be mistaken for navigator red — turn on for screenshots with a viewer navigator thumbnail or scale bar.</p>
+      </details>
+    </div>
+
+    <div class="panel">
+      <h2>This field</h2>
+      <div id="fname" class="small-caps" style="margin:-4px 0 8px;color:var(--muted);word-break:break-all">—</div>
+      <div class="err" id="errbox"></div>
+      <div class="warn" id="warnbox"></div>
+
+      <div class="estbox" id="estbox">
+        <div>
+          <div class="small-caps" style="color:var(--accent)">Estimated Ashcroft</div>
+          <div class="estgrade" id="estgrade">—</div>
+        </div>
+        <button class="btn" id="useest" disabled title="copy estimate into the lab score">use →</button>
+      </div>
+      <div class="estwhy" id="estwhy">add an image to estimate</div>
+
+      <div class="ash">
+        <span class="small-caps" style="flex:none">Lab score<br><span style="font-weight:400;letter-spacing:0;text-transform:none">(manual)</span></span>
+        <select id="ash"><option value="">— not scored —</option></select>
+      </div>
+      <input type="text" id="region" placeholder="region label (e.g. LLL field 2)" style="width:100%;margin:6px 0">
+      <textarea id="notes" placeholder="notes (folds, artifacts, what you excluded…)"></textarea>
+
+      <div style="margin-top:14px">
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--dense)"></span>Wall thickness (median)<small>tissue→nearest alveolar airspace</small></div><div class="val" id="m_wt">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--dense)"></span>Fibrotic-mass fraction<small>tissue far from any airspace ÷ analyzed</small></div><div class="val" id="m_mass">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--tissue)"></span>Tissue fraction<small>non-airspace ÷ analyzed</small></div><div class="val" id="m_tis">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--air)"></span>Airspace fraction<small>alveolar ÷ analyzed</small></div><div class="val" id="m_air">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--collagen)"></span>Collagen, % of tissue<small>blue ÷ (blue + red) · trichrome only</small></div><div class="val" id="m_col">—</div></div>
+        <div class="mrow"><div class="lab" style="color:var(--muted)">Analyzed area<small>(ROI − airways − peri − artifacts) ÷ ROI</small></div><div class="val" id="m_eff" style="font-size:14px;color:var(--muted)">—</div></div>
+      </div>
+      <div class="bar" id="compbar" title="composition of analyzed area"><i style="background:var(--air);width:100%"></i></div>
+      <p class="footnote" id="pxnote">—</p>
+
+      <details class="controls" id="modelctl" style="margin-top:12px">
+        <summary>Auto-score model (provisional · editable)</summary>
+        <p class="footnote" style="margin:8px 0">Estimates Ashcroft from structure, not collagen percent. Low grades (0–2) are driven by alveolar wall thickening; grade 3+ requires fibrotic masses; 4–8 escalates with airspace obliteration. All thresholds are pixel units at analysis resolution.</p>
+        <div class="sec-title" style="border-top:none;padding-top:0">Low grades — wall thickening</div>
+        <div class="ctl dual">
+          <div><label>grade 0 if wall &lt; <b id="lwn">1.2 px</b></label><input type="range" id="m_wn" min="0.4" max="3" step="0.1" value="1.2"></div>
+          <div><label>grade 2 if wall ≥ <b id="lwm">2.5 px</b></label><input type="range" id="m_wm" min="1.5" max="6" step="0.1" value="2.5"></div>
+        </div>
+        <div class="sec-title">Masses present</div>
+        <div class="ctl"><label>Fibrotic masses present when mass ≥ <b id="lmt">5%</b></label><input type="range" id="m_mt" min="0.5" max="25" step="0.5" value="5"></div>
+        <div class="sec-title">High grades — airspace obliteration</div>
+        <div class="ctl" style="margin:6px 0">
+          <label>grade 3 / 4 / 5 / 6 / 7 / 8 boundaries (tissue % of analyzed)</label>
+          <div style="display:flex;gap:5px">
+            <input type="text" id="m_al" value="45,58,70,82,92" style="flex:1;font-family:var(--mono);font-size:11.5px;text-align:center" title="five ascending tissue-fraction % cutoffs separating grades 3→8">
+          </div>
+        </div>
+        <button class="btn" id="m_reset" style="margin-top:4px">Reset model to defaults</button>
+      </details>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <h2 style="margin:0">Session table</h2>
+      <button class="btn solid" id="export">Export CSV</button>
+    </div>
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th class="l">#</th><th class="l">File / region</th><th>Est.</th><th>Lab</th>
+          <th>Wall (px)</th><th>Mass %</th><th>Tissue %</th><th>Airspace %</th><th>Coll %tis</th><th>Analyzed %</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="11" class="l" style="color:var(--faint)">No images yet.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="corr" id="corr"></div>
+    <svg id="scatter" width="100%" height="0" style="margin-top:6px;display:none"></svg>
+  </div>
+
+  <div class="panel ref" style="margin-top:18px">
+    <details>
+      <summary style="cursor:pointer;font-family:var(--serif);font-size:15px;font-weight:600">Ashcroft scoring reference (0–8)</summary>
+      <table style="margin-top:10px">
+        <thead><tr><th>Grade</th><th class="l">Histological criteria</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td class="l">Normal lung.</td></tr>
+          <tr><td>1</td><td class="l">Minimal fibrous thickening of alveolar or bronchiolar walls.</td></tr>
+          <tr><td>2</td><td class="l">Moderate thickening of walls without obvious damage to lung architecture.</td></tr>
+          <tr><td>3</td><td class="l">Increased fibrosis with definite damage to lung structure and formation of fibrous bands or small fibrous masses.</td></tr>
+          <tr><td>4</td><td class="l">Severe distortion of structure and large fibrous areas; "honeycomb lung" placed in this category.</td></tr>
+          <tr><td>5</td><td class="l">Confluent fibrous masses with definite damage; some preserved airspaces remain.</td></tr>
+          <tr><td>6</td><td class="l">Large contiguous fibrous masses; only occasional airspaces, largely filled with cells/debris.</td></tr>
+          <tr><td>7</td><td class="l">Severe distortion; airspaces nearly obliterated, occasional air bubbles only.</td></tr>
+          <tr><td>8</td><td class="l">Total fibrous obliteration of the field.</td></tr>
+        </tbody>
+      </table>
+      <p class="footnote">Modified Ashcroft scale (Ashcroft et al. 1988; Hübner et al. 2008). Score the worst-affected representative high-power field; assign the highest grade present in &gt;~1 field. Use your lab's own annotated reference image alongside this.</p>
+    </details>
+  </div>
+
+  <p class="footnote" style="margin-top:18px">Prototype. All processing is local — closing the tab clears the session, so export the CSV before you leave. Metrics depend on the threshold settings (all recorded in the CSV). Validate against manual Ashcroft before relying on them.</p>
+</div>
+
+<script>
+"use strict";
+(function(){
+  const ASH_MAX=8, ANALYSIS_MAX=1400;
+  const AIR=0, TIS=1, COL=2;
+
+  let imgs=[];
+  let curId=null, viewMode='orig', dragging=null, showExcl=true;
+
+  const P={whiteV:0.82, whiteS:0.12, hmin:165, hmax:255, colS:0.10,
+           awMult:8, periBuf:12, artMask:false, massDist:6};
+
+  const Mdef={wn:1.2, wm:2.5, mt:5, al:[45,58,70,82,92]};
+  const M={wn:Mdef.wn, wm:Mdef.wm, mt:Mdef.mt, al:Mdef.al.slice()};
+
+  const $=id=>document.getElementById(id);
+  const fileEl=$('file'),dropEl=$('drop'),stripEl=$('strip'),areaEl=$('area'),emptyEl=$('empty'),
+        viewEl=$('view'),vctx=viewEl.getContext('2d'),roihintEl=$('roihint'),roitxtEl=$('roitxt'),
+        ashEl=$('ash'),regionEl=$('region'),notesEl=$('notes'),fnameEl=$('fname'),tbodyEl=$('tbody'),
+        corrEl=$('corr'),errEl=$('errbox'),warnEl=$('warnbox');
+
+  for(let i=0;i<=ASH_MAX;i++){const o=document.createElement('option');o.value=i;o.textContent=i;ashEl.appendChild(o);}
+
+  function rgb2hsv(r,g,b){
+    r/=255;g/=255;b/=255;
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+    let h=0;
+    if(d){
+      if(mx===r)h=((g-b)/d)%6;
+      else if(mx===g)h=(b-r)/d+2;
+      else h=(r-g)/d+4;
+      h*=60; if(h<0)h+=360;
+    }
+    return [h, mx?d/mx:0, mx];
+  }
+  function classify(r,g,b){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v>=P.whiteV && s<=P.whiteS) return AIR;
+    if(s>=P.colS && h>=P.hmin && h<=P.hmax) return COL;
+    return TIS;
+  }
+  function isArtifactPixel(r,g,b){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v<0.10) return true;
+    if(s>0.80 && v>0.45 && (h<10 || h>352)) return true;
+    return false;
+  }
+
+  function ccLabel(mask,w,h){
+    const N=w*h;
+    const lab=new Int32Array(N);
+    const sizes=[0]; const bboxes=[null];
+    const stack=new Int32Array(N);
+    let next=1;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i0=y*w+x;
+        if(!mask[i0] || lab[i0]) continue;
+        lab[i0]=next;
+        let size=0, sp=0;
+        stack[sp++]=i0;
+        let bx0=x,by0=y,bx1=x,by1=y;
+        while(sp){
+          const j=stack[--sp];
+          size++;
+          const jx=j%w, jy=(j-jx)/w;
+          if(jx<bx0)bx0=jx; else if(jx>bx1)bx1=jx;
+          if(jy<by0)by0=jy; else if(jy>by1)by1=jy;
+          if(jx>0){const k=j-1; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+          if(jx<w-1){const k=j+1; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+          if(jy>0){const k=j-w; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+          if(jy<h-1){const k=j+w; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+        }
+        sizes.push(size);
+        bboxes.push({x0:bx0,y0:by0,x1:bx1+1,y1:by1+1});
+        next++;
+      }
+    }
+    return {lab,sizes,bboxes,count:next-1};
+  }
+
+  // Morphological erosion (4-connected). Iterates `iter` times. Used to break thin pixel-level
+  // bridges between adjacent alveoli so the airway CC pass doesn't merge them into one giant blob.
+  function erode(mask,w,h,iter){
+    let cur=mask;
+    for(let it=0;it<iter;it++){
+      const next=new Uint8Array(w*h);
+      for(let y=1;y<h-1;y++){
+        const yw=y*w;
+        for(let x=1;x<w-1;x++){
+          const i=yw+x;
+          if(cur[i] && cur[i-1] && cur[i+1] && cur[i-w] && cur[i+w]) next[i]=1;
+        }
+      }
+      cur=next;
+    }
+    return cur;
+  }
+
+  function distanceTransform(mask,w,h){
+    const N=w*h, INF=1e9, D=3, DD=4;
+    const d=new Float32Array(N);
+    for(let i=0;i<N;i++) d[i]=mask[i]?0:INF;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i=y*w+x;
+        if(d[i]===0) continue;
+        let best=d[i];
+        if(y>0){
+          const v=d[i-w]+D; if(v<best)best=v;
+          if(x>0){const v2=d[i-w-1]+DD; if(v2<best)best=v2;}
+          if(x<w-1){const v2=d[i-w+1]+DD; if(v2<best)best=v2;}
+        }
+        if(x>0){const v=d[i-1]+D; if(v<best)best=v;}
+        d[i]=best;
+      }
+    }
+    for(let y=h-1;y>=0;y--){
+      for(let x=w-1;x>=0;x--){
+        const i=y*w+x;
+        let best=d[i];
+        if(y<h-1){
+          const v=d[i+w]+D; if(v<best)best=v;
+          if(x>0){const v2=d[i+w-1]+DD; if(v2<best)best=v2;}
+          if(x<w-1){const v2=d[i+w+1]+DD; if(v2<best)best=v2;}
+        }
+        if(x<w-1){const v=d[i+1]+D; if(v<best)best=v;}
+        d[i]=best;
+      }
+    }
+    for(let i=0;i<N;i++) d[i]/=3;
+    return d;
+  }
+
+  function estimate(m){
+    if(!m) return null;
+    const WT=isFinite(m.wallMedian)?m.wallMedian:80;
+    const MF=m.massFrac;
+    const AL=Math.max(0, Math.min(100, 100 - m.airspacePct));
+    let r;
+    if(MF < M.mt){
+      if(WT < M.wn) r={grade:0, why:`thin walls (median ${WT.toFixed(1)} px), few masses → normal`};
+      else if(WT < M.wm) r={grade:1, why:`walls ${WT.toFixed(1)} px (≥ ${M.wn.toFixed(1)}), few masses → minimal thickening`};
+      else r={grade:2, why:`walls ${WT.toFixed(1)} px (≥ ${M.wm.toFixed(1)}), few masses → moderate thickening`};
+    } else {
+      const cuts=M.al; let g=3;
+      for(let i=0;i<cuts.length;i++){ if(AL>=cuts[i]) g=4+i; }
+      r={grade:g, why:`masses ${MF.toFixed(0)}%, airspace loss ${AL.toFixed(0)}% → grade ${g}`};
+    }
+    if(m.effectivePct < 20) r.why += `  ⚠ only ${m.effectivePct.toFixed(0)}% of ROI analyzed`;
+    return r;
+  }
+
+  function addFiles(list){
+    [...list].forEach(f=>{
+      const isTiff=/tiff?$/i.test(f.name)||/tiff/i.test(f.type);
+      const rd=new FileReader();
+      rd.onload=e=>{ isTiff?loadTiff(f.name,e.target.result):loadRaster(f.name,e.target.result); };
+      isTiff? rd.readAsArrayBuffer(f):rd.readAsDataURL(f);
+    });
+  }
+  function loadRaster(name,dataURL){
+    const im=new Image();
+    im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+      c.getContext('2d').drawImage(im,0,0);register(name,c);};
+    im.onerror=()=>showErr('Could not read '+name);
+    im.src=dataURL;
+  }
+  function loadTiff(name,buf){
+    if(typeof UTIF==='undefined'){showErr('TIFF decoder not loaded yet. If you opened this file directly it should work; otherwise convert to PNG.');return;}
+    try{
+      const ifds=UTIF.decode(buf);UTIF.decodeImage(buf,ifds[0]);
+      const rgba=UTIF.toRGBA8(ifds[0]),w=ifds[0].width,h=ifds[0].height;
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const id=new ImageData(new Uint8ClampedArray(rgba),w,h);c.getContext('2d').putImageData(id,0,0);
+      register(name,c);
+    }catch(err){showErr('Failed to decode TIFF '+name+': '+err.message);}
+  }
+  function showErr(msg){errEl.style.display='';errEl.textContent=msg;console.error(msg);}
+  function clearErr(){errEl.style.display='none';errEl.textContent='';}
+  function showWarn(msg){if(!msg){warnEl.style.display='none';warnEl.textContent='';return;}warnEl.style.display='';warnEl.textContent=msg;}
+
+  function register(name,full){
+    const w=full.width,h=full.height;
+    const scale=Math.max(1,Math.max(w,h)/ANALYSIS_MAX);
+    const aw=Math.round(w/scale),ah=Math.round(h/scale);
+    const ac=document.createElement('canvas');ac.width=aw;ac.height=ah;
+    ac.getContext('2d').drawImage(full,0,0,aw,ah);
+    const adata=ac.getContext('2d').getImageData(0,0,aw,ah);
+    const tc=document.createElement('canvas');tc.width=46;tc.height=34;
+    tc.getContext('2d').drawImage(full,0,0,46,34);
+    const rec={id:'i'+Date.now()+Math.random().toString(36).slice(2,6),name,w,h,full,adata,ascale:scale,
+               roi:null,ash:'',region:'',notes:'',metrics:null,thumb:tc.toDataURL()};
+    imgs.push(rec);
+    safeCompute(rec);
+    renderStrip();
+    if(!curId)select(rec.id); else if(rec.id===curId){renderMetrics();drawView();}
+    renderTable();
+  }
+
+  function safeCompute(rec){
+    try{ compute(rec); clearErr(); }
+    catch(err){ console.error(err); showErr('compute failed: '+err.message+'\n(see browser console for stack)'); rec.metrics=null; rec.est=null; }
+  }
+
+  function compute(rec){
+    const {adata,ascale}=rec, aw=adata.width, ah=adata.height, d=adata.data;
+    let x0=0,y0=0,x1=aw,y1=ah;
+    if(rec.roi){
+      x0=Math.max(0,Math.floor(rec.roi.x/ascale));
+      y0=Math.max(0,Math.floor(rec.roi.y/ascale));
+      x1=Math.min(aw,Math.ceil((rec.roi.x+rec.roi.w)/ascale));
+      y1=Math.min(ah,Math.ceil((rec.roi.y+rec.roi.h)/ascale));
+    }
+    const rw=Math.max(1,x1-x0), rh=Math.max(1,y1-y0), N=rw*rh;
+
+    const cls=new Uint8Array(N);
+    const artCandidate=new Uint8Array(N);
+    const cwX=rw*0.18, cwY=rh*0.18;
+    for(let yy=0;yy<rh;yy++){
+      const ay=yy+y0;
+      for(let xx=0;xx<rw;xx++){
+        const ax=xx+x0, p=(ay*aw+ax)*4, li=yy*rw+xx;
+        const R=d[p],G=d[p+1],B=d[p+2];
+        cls[li]=classify(R,G,B);
+        if(P.artMask){
+          const inCornerX = xx<cwX || xx>=rw-cwX;
+          const inCornerY = yy<cwY || yy>=rh-cwY;
+          if(inCornerX && inCornerY && isArtifactPixel(R,G,B)) artCandidate[li]=1;
+        }
+      }
+    }
+
+    const airMask=new Uint8Array(N);
+    for(let i=0;i<N;i++) airMask[i]=(cls[i]===AIR)?1:0;
+
+    // Airway detection: erode airspace mask 2 px so chains of alveoli joined by 1-2 px wall gaps
+    // don't merge into one giant "airway". Real airways/vessels survive 2-px erosion; merged-alveoli
+    // chains don't. CC on eroded mask, size-filter (min N× median alveolus AND ≤15% of ROI), then
+    // reconstruct extent within the original air mask via distance from the core.
+    const EROSION=2;
+    const eroded = erode(airMask, rw, rh, EROSION);
+    const ccEroded = ccLabel(eroded, rw, rh);
+    let medianAlv=0, airwayMin=Infinity, airwayMax=Math.round(N*0.15);
+    if(ccEroded.count>0){
+      const sizes=ccEroded.sizes.slice(1).filter(s=>s>=4).sort((a,b)=>a-b);
+      medianAlv = sizes.length ? sizes[Math.floor(sizes.length/2)] : 0;
+      airwayMin = Math.max(40, Math.round(medianAlv * P.awMult));
+    }
+    const coreIsAirway=new Uint8Array(ccEroded.count+1);
+    let airwayCount=0;
+    for(let lab=1;lab<=ccEroded.count;lab++){
+      if(ccEroded.sizes[lab]>=airwayMin && ccEroded.sizes[lab]<=airwayMax){
+        coreIsAirway[lab]=1; airwayCount++;
+      }
+    }
+    const airwayMask=new Uint8Array(N);
+    if(airwayCount>0){
+      const coreMask=new Uint8Array(N);
+      for(let i=0;i<N;i++) if(eroded[i] && coreIsAirway[ccEroded.lab[i]]) coreMask[i]=1;
+      const dtCore=distanceTransform(coreMask,rw,rh);
+      const reach=EROSION+1;
+      for(let i=0;i<N;i++){
+        if(airMask[i] && dtCore[i]<=reach) airwayMask[i]=1;
+      }
+    }
+
+    const smallAirMask=new Uint8Array(N);
+    let smallAirAny=false;
+    for(let i=0;i<N;i++){
+      if(airMask[i] && !airwayMask[i]){ smallAirMask[i]=1; smallAirAny=true; }
+    }
+
+    const periMask=new Uint8Array(N);
+    if(P.periBuf>0 && airwayCount>0){
+      const dtAirway=distanceTransform(airwayMask,rw,rh);
+      for(let i=0;i<N;i++){
+        if(!airwayMask[i] && dtAirway[i] <= P.periBuf) periMask[i]=1;
+      }
+    }
+
+    const artifactMask=new Uint8Array(N);
+    const artifactRects=[];
+    if(P.artMask){
+      const ccArt=ccLabel(artCandidate,rw,rh);
+      const minArt=80;
+      const pad=Math.max(2, Math.round(Math.min(rw,rh)*0.005));
+      for(let lab=1;lab<=ccArt.count;lab++){
+        if(ccArt.sizes[lab] < minArt) continue;
+        const b=ccArt.bboxes[lab];
+        const bw=b.x1-b.x0, bh=b.y1-b.y0;
+        if(bw*bh > N*0.12) continue;
+        const bx0=Math.max(0,b.x0-pad), by0=Math.max(0,b.y0-pad),
+              bx1=Math.min(rw,b.x1+pad), by1=Math.min(rh,b.y1+pad);
+        artifactRects.push({x0:bx0,y0:by0,x1:bx1,y1:by1});
+        for(let y=by0;y<by1;y++)for(let x=bx0;x<bx1;x++) artifactMask[y*rw+x]=1;
+      }
+    }
+
+    const effMask=new Uint8Array(N);
+    for(let i=0;i<N;i++){
+      if(airwayMask[i] || periMask[i] || artifactMask[i]) continue;
+      effMask[i]=1;
+    }
+
+    let fallback='';
+    let initEff=0; for(let i=0;i<N;i++) if(effMask[i]) initEff++;
+    if(N>0 && initEff/N < 0.30){
+      let cur=0;
+      for(let i=0;i<N;i++){ effMask[i]=(airwayMask[i]||periMask[i])?0:1; if(effMask[i])cur++; }
+      fallback='auto-artifact mask dropped (would have excluded >70% of ROI)';
+      if(cur/N < 0.30){
+        cur=0;
+        for(let i=0;i<N;i++){ effMask[i]=airwayMask[i]?0:1; if(effMask[i])cur++; }
+        fallback='peri-airway buffer + artifact mask dropped (airway+peri alone exceeded 70% of ROI)';
+        if(cur/N < 0.05){
+          for(let i=0;i<N;i++) effMask[i]=1;
+          fallback='all exclusions dropped (airways themselves cover most of ROI — score reflects the whole field)';
+        }
+      }
+    }
+
+    let eff=0, eAir=0, eTis=0, eCol=0;
+    for(let i=0;i<N;i++){
+      if(!effMask[i]) continue;
+      eff++;
+      const c=cls[i];
+      if(c===AIR) eAir++;
+      else if(c===COL) eCol++;
+      else eTis++;
+    }
+    const eTissue=eTis+eCol;
+
+    let wallMean=0, wallMedian=0, massCount=0;
+    if(eTissue>0 && smallAirAny){
+      const dtAir=distanceTransform(smallAirMask,rw,rh);
+      const histMax=80;
+      const hist=new Int32Array(histMax+1);
+      let sum=0, n=0;
+      for(let i=0;i<N;i++){
+        if(!effMask[i] || cls[i]===AIR) continue;
+        const dist=Math.min(histMax, dtAir[i]);
+        sum+=dist; n++;
+        hist[Math.round(dist)]++;
+        if(dist > P.massDist) massCount++;
+      }
+      wallMean = n ? sum/n : 0;
+      let cum=0;
+      for(let b=0;b<=histMax;b++){ cum+=hist[b]; if(cum>=n/2){wallMedian=b; break;} }
+    } else if(eTissue>0){
+      massCount=eTissue; wallMean=80; wallMedian=80;
+    }
+
+    rec.metrics={
+      total:N, effective:eff,
+      effectivePct: N? 100*eff/N : 0,
+      airwayCount,
+      airwayPx: countMask(airwayMask),
+      periPx: countMask(periMask),
+      artifactPx: countMask(artifactMask),
+      airspacePct: eff? 100*eAir/eff : 0,
+      tissuePct:   eff? 100*eTissue/eff : 0,
+      collagenOfTissue: eTissue? 100*eCol/eTissue : 0,
+      collagenOfEff:   eff? 100*eCol/eff : 0,
+      massFrac: eff? 100*massCount/eff : 0,
+      wallMean, wallMedian, massCount, medianAlveolus: medianAlv,
+      rw, rh, x0, y0, ascale,
+      cls, airwayMask, periMask, artifactMask, effMask, artifactRects,
+      fallback
+    };
+    rec.est=estimate(rec.metrics);
+  }
+  function countMask(m){let c=0;for(let i=0;i<m.length;i++)if(m[i])c++;return c;}
+  function reEstimateAll(){imgs.forEach(r=>{if(r.metrics)r.est=estimate(r.metrics);});}
+
+  function renderStrip(){
+    stripEl.innerHTML='';
+    imgs.forEach((r)=>{
+      const div=document.createElement('div');div.className='thumb'+(r.id===curId?' active':'');
+      div.innerHTML=`<img src="${r.thumb}" style="width:46px;height:34px;border-radius:3px;object-fit:cover">
+        <div><div class="nm">${esc(r.name)}</div><div class="mini">${r.w}×${r.h}${r.roi?' · ROI':''}</div></div>
+        <span class="sc">${r.est?'~'+r.est.grade:''}${r.ash!==''?'<b style="color:var(--ink)"> /'+r.ash+'</b>':''}</span>
+        <button class="rm" title="remove">×</button>`;
+      div.onclick=e=>{if(e.target.classList.contains('rm'))remove(r.id);else select(r.id);};
+      stripEl.appendChild(div);
+    });
+  }
+  function select(id){
+    curId=id;const r=cur();
+    fnameEl.textContent=r?r.name:'—';
+    ashEl.value=r?r.ash:''; regionEl.value=r?r.region:''; notesEl.value=r?r.notes:'';
+    if(r&&r.roi)roitxtEl.textContent=`${r.roi.w}×${r.roi.h} px at (${r.roi.x}, ${r.roi.y})`; else roitxtEl.textContent='full image';
+    renderStrip();drawView();renderMetrics();renderTableActive();
+  }
+  function cur(){return imgs.find(x=>x.id===curId)||null;}
+
+  function drawView(){
+    const r=cur();
+    if(!r){emptyEl.style.display='';viewEl.style.display='none';roihintEl.style.display='none';return;}
+    emptyEl.style.display='none';viewEl.style.display='';roihintEl.style.display='';
+    const maxW=areaEl.clientWidth||700;
+    const dispW=Math.min(r.w,maxW), dispScale=dispW/r.w, dispH=Math.round(r.h*dispScale);
+    viewEl.width=dispW;viewEl.height=dispH;viewEl._dispScale=dispScale;
+    vctx.drawImage(r.full,0,0,dispW,dispH);
+    if(viewMode==='overlay') drawOverlay(r,dispScale);
+    if(r.roi){
+      vctx.save();vctx.strokeStyle='#146b7e';vctx.lineWidth=2;vctx.setLineDash([6,4]);
+      vctx.strokeRect(r.roi.x*dispScale,r.roi.y*dispScale,r.roi.w*dispScale,r.roi.h*dispScale);
+      vctx.fillStyle='rgba(34,38,43,.32)';
+      vctx.fillRect(0,0,dispW,r.roi.y*dispScale);
+      vctx.fillRect(0,(r.roi.y+r.roi.h)*dispScale,dispW,dispH);
+      vctx.fillRect(0,r.roi.y*dispScale,r.roi.x*dispScale,r.roi.h*dispScale);
+      vctx.fillRect((r.roi.x+r.roi.w)*dispScale,r.roi.y*dispScale,dispW,r.roi.h*dispScale);
+      vctx.restore();
+    }
+  }
+  function drawOverlay(r,dispScale){
+    const m=r.metrics;if(!m)return;
+    const oc=document.createElement('canvas');oc.width=m.rw;oc.height=m.rh;
+    const octx=oc.getContext('2d');const od=octx.createImageData(m.rw,m.rh);
+    const cls=m.cls, aw=m.airwayMask, pe=m.periMask, ar=m.artifactMask;
+    for(let i=0;i<cls.length;i++){
+      const o=i*4; let R,G,B,A=235;
+      if(cls[i]===AIR){R=239;G=236;B=228;A=110;}
+      else if(cls[i]===COL){R=31;G=122;B=156;}
+      else{R=194;G=91;B=134;}
+      if(showExcl){
+        if(aw[i]){R=74;G=74;B=82;A=220;}
+        else if(pe[i]){R=Math.round(R*0.4+214*0.6); G=Math.round(G*0.4+185*0.6); B=Math.round(B*0.4+72*0.6); A=215;}
+        else if(ar[i]){R=Math.round(R*0.35+160*0.65); G=Math.round(G*0.35+73*0.65); B=Math.round(B*0.35+160*0.65); A=215;}
+      }
+      od.data[o]=R;od.data[o+1]=G;od.data[o+2]=B;od.data[o+3]=A;
+    }
+    octx.putImageData(od,0,0);
+    vctx.save();vctx.imageSmoothingEnabled=false;vctx.globalAlpha=0.92;
+    const sx=(m.x0*r.ascale)*dispScale, sy=(m.y0*r.ascale)*dispScale;
+    vctx.drawImage(oc,sx,sy,m.rw*r.ascale*dispScale,m.rh*r.ascale*dispScale);
+    vctx.restore();
+  }
+
+  function renderMetrics(){
+    const r=cur(),m=r&&r.metrics;
+    const useBtn=$('useest');
+    if(!m){
+      ['m_wt','m_mass','m_tis','m_air','m_col','m_eff'].forEach(i=>$(i).textContent='—');
+      $('pxnote').textContent='—';
+      $('compbar').innerHTML='<i style="background:var(--air);width:100%"></i>';
+      $('estgrade').textContent='—';$('estwhy').textContent=r?'metrics not computed — check error box above':'add an image to estimate';
+      useBtn.disabled=true;showWarn('');return;
+    }
+    $('m_wt').innerHTML=`${m.wallMedian.toFixed(1)} <small>px</small>`;
+    $('m_mass').textContent=m.massFrac.toFixed(1)+'%';
+    $('m_tis').textContent=m.tissuePct.toFixed(1)+'%';
+    $('m_air').textContent=m.airspacePct.toFixed(1)+'%';
+    $('m_col').textContent=m.collagenOfTissue.toFixed(1)+'%';
+    $('m_eff').textContent=m.effectivePct.toFixed(1)+'%';
+
+    const e=r.est||estimate(m);
+    $('estgrade').textContent=e?e.grade:'—';
+    $('estwhy').textContent=e?e.why:'';
+    useBtn.disabled=!e;
+
+    showWarn(m.fallback ? ('safety fallback: '+m.fallback) : '');
+
+    const air=m.airspacePct, colp=m.collagenOfEff, tisp=Math.max(0,100-air-colp);
+    $('compbar').innerHTML=`<i style="background:var(--air);width:${air}%"></i><i style="background:var(--tissue);width:${tisp}%"></i><i style="background:var(--collagen);width:${colp}%"></i>`;
+
+    const exclTot=m.airwayPx+m.periPx+m.artifactPx;
+    $('pxnote').textContent=`${m.effective.toLocaleString()} px analyzed (${m.effectivePct.toFixed(1)}% of ROI; excluded ${m.airwayCount} airway${m.airwayCount===1?'':'s'} + ${m.periPx.toLocaleString()} px peri-airway + ${m.artifactPx.toLocaleString()} px artifact = ${exclTot.toLocaleString()} px). Analysis 1:${r.ascale.toFixed(2)} of ${r.w}×${r.h}. Median alveolus ≈ ${m.medianAlveolus} px.`;
+  }
+
+  function renderTable(){
+    if(!imgs.length){tbodyEl.innerHTML='<tr><td colspan="11" class="l" style="color:var(--faint)">No images yet.</td></tr>';renderCorr();return;}
+    tbodyEl.innerHTML='';
+    imgs.forEach((r,i)=>{
+      const m=r.metrics;const tr=document.createElement('tr');if(r.id===curId)tr.className='active';
+      const lab=esc(r.name)+(r.region?` · ${esc(r.region)}`:'');
+      const est=r.est?r.est.grade:null;
+      const mismatch=(est!=null&&r.ash!==''&&Math.abs(est-(+r.ash))>=2);
+      tr.innerHTML=`<td class="l">${i+1}</td><td class="l">${lab}</td>
+        <td class="mono" style="color:var(--accent)">${est!=null?est:'–'}</td>
+        <td class="mono"${mismatch?' style="color:var(--tissue);font-weight:600"':''}>${r.ash!==''?r.ash:'–'}</td>
+        <td class="mono">${m?m.wallMedian.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.massFrac.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.tissuePct.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.airspacePct.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.collagenOfTissue.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.effectivePct.toFixed(0):'–'}</td>
+        <td><button class="rm" style="border:none;background:none;color:var(--faint);cursor:pointer">×</button></td>`;
+      tr.onclick=e=>{if(e.target.classList.contains('rm'))remove(r.id);else select(r.id);};
+      tbodyEl.appendChild(tr);
+    });
+    renderCorr();
+  }
+  function renderTableActive(){[...tbodyEl.children].forEach((tr,i)=>{tr.className=(imgs[i]&&imgs[i].id===curId)?'active':'';});}
+
+  function pearson(xs,ys){
+    const n=xs.length;if(n<3)return null;
+    const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;
+    let sxy=0,sx=0,sy=0;for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sx+=dx*dx;sy+=dy*dy;}
+    if(sx===0||sy===0)return null;return sxy/Math.sqrt(sx*sy);
+  }
+  function renderCorr(){
+    const scored=imgs.filter(r=>r.ash!==''&&r.metrics);
+    const ax=scored.map(r=>+r.ash);
+    const rw=pearson(ax,scored.map(r=>r.metrics.wallMedian));
+    const rm=pearson(ax,scored.map(r=>r.metrics.massFrac));
+    const paired=scored.filter(r=>r.est);
+    let agree='';
+    if(paired.length){
+      const diffs=paired.map(r=>Math.abs(r.est.grade-(+r.ash)));
+      const mad=diffs.reduce((a,b)=>a+b,0)/diffs.length;
+      const within1=100*diffs.filter(d=>d<=1).length/diffs.length;
+      const exact=100*diffs.filter(d=>d===0).length/diffs.length;
+      agree=`<span class="stat">est vs lab: mean Δ <b>${mad.toFixed(1)}</b> grade · exact <b>${exact.toFixed(0)}%</b> · within 1 <b>${within1.toFixed(0)}%</b></span>`;
+    }
+    corrEl.innerHTML=`<span class="stat">scored fields: <b>${scored.length}</b></span>`+
+      (rw!=null?`<span class="stat">lab vs wall (px): r = <b>${rw.toFixed(2)}</b></span>`:'')+
+      (rm!=null?`<span class="stat">lab vs mass %: r = <b>${rm.toFixed(2)}</b></span>`:'')+
+      agree+
+      (scored.length<3?`<span style="color:var(--faint)">score ≥3 fields to see correlation</span>`:'');
+    drawScatter(scored);
+  }
+  function drawScatter(scored){
+    const svg=$('scatter');
+    if(scored.length<3){svg.style.display='none';svg.setAttribute('height',0);return;}
+    const W=svg.clientWidth||600,H=200,pad=34;svg.style.display='';svg.setAttribute('height',H);
+    const xs=scored.map(r=>+r.ash),ys=scored.map(r=>r.metrics.wallMedian);
+    const ymax=Math.max(2,Math.max(...ys)*1.1);
+    const px=v=>pad+(v/ASH_MAX)*(W-pad-10), py=v=>H-pad-(v/ymax)*(H-pad-12);
+    let s=`<rect x="0" y="0" width="${W}" height="${H}" fill="none"/>`;
+    s+=`<line x1="${pad}" y1="${H-pad}" x2="${W-8}" y2="${H-pad}" stroke="#d2ccbd"/>`;
+    s+=`<line x1="${pad}" y1="12" x2="${pad}" y2="${H-pad}" stroke="#d2ccbd"/>`;
+    for(let a=0;a<=ASH_MAX;a+=2)s+=`<text x="${px(a)}" y="${H-pad+14}" font-size="10" fill="#9a9ea5" text-anchor="middle" font-family="monospace">${a}</text>`;
+    s+=`<text x="${(W)/2}" y="${H-6}" font-size="10.5" fill="#6b6f76" text-anchor="middle">Ashcroft grade</text>`;
+    s+=`<text x="12" y="${H/2}" font-size="10.5" fill="#6b6f76" text-anchor="middle" transform="rotate(-90 12 ${H/2})">wall thickness (px)</text>`;
+    scored.forEach(r=>{s+=`<circle cx="${px(+r.ash)}" cy="${py(r.metrics.wallMedian)}" r="4.5" fill="#1f7a9c" fill-opacity="0.8"/>`;});
+    svg.innerHTML=s;
+  }
+
+  function evtPos(e){const rct=viewEl.getBoundingClientRect();const cx=(e.touches?e.touches[0].clientX:e.clientX)-rct.left;const cy=(e.touches?e.touches[0].clientY:e.clientY)-rct.top;return{x:cx,y:cy};}
+  function startDrag(e){const r=cur();if(!r)return;e.preventDefault();const p=evtPos(e);dragging={sx:p.x,sy:p.y,scale:viewEl._dispScale};}
+  function moveDrag(e){if(!dragging)return;const p=evtPos(e);
+    const x=Math.min(dragging.sx,p.x),y=Math.min(dragging.sy,p.y),w=Math.abs(p.x-dragging.sx),h=Math.abs(p.y-dragging.sy);
+    drawView();vctx.save();vctx.strokeStyle='#146b7e';vctx.lineWidth=2;vctx.setLineDash([6,4]);vctx.strokeRect(x,y,w,h);vctx.restore();}
+  function endDrag(e){if(!dragging)return;const r=cur();const p=evtPos(e);const sc=dragging.scale;
+    const x=Math.min(dragging.sx,p.x)/sc,y=Math.min(dragging.sy,p.y)/sc,w=Math.abs(p.x-dragging.sx)/sc,h=Math.abs(p.y-dragging.sy)/sc;
+    dragging=null;
+    if(w*sc<6||h*sc<6) return;
+    r.roi={x:Math.round(Math.max(0,x)),y:Math.round(Math.max(0,y)),w:Math.round(Math.min(r.w,w)),h:Math.round(Math.min(r.h,h))};
+    roitxtEl.textContent=`${r.roi.w}×${r.roi.h} px at (${r.roi.x}, ${r.roi.y})`;
+    safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();
+  }
+
+  function remove(id){imgs=imgs.filter(x=>x.id!==id);if(curId===id)curId=imgs.length?imgs[0].id:null;renderStrip();select(curId);renderTable();}
+  function recomputeAll(){imgs.forEach(safeCompute);drawView();renderMetrics();renderTable();renderStrip();}
+
+  function csvCell(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+  function exportCSV(){
+    if(!imgs.length){alert('No images to export.');return;}
+    const hdr=['index','filename','region_label',
+      'ashcroft_estimated','ashcroft_manual_lab',
+      'wall_thickness_px_median','wall_thickness_px_mean',
+      'mass_fraction_pct','tissue_pct_of_analyzed','airspace_pct_of_analyzed',
+      'collagen_pct_of_tissue','collagen_pct_of_analyzed',
+      'analyzed_pct_of_roi','px_analyzed','px_airway','px_peri_airway','px_artifact','airway_count','median_alveolus_px',
+      'safety_fallback',
+      'roi_x','roi_y','roi_w','roi_h','image_w','image_h',
+      'thr_whiteV','thr_whiteS','thr_hue_min','thr_hue_max','thr_collagen_minS',
+      'airway_relative_mult','peri_airway_buffer_px','auto_artifact_mask','mass_dist_threshold_px',
+      'model_wall_normal_max_px','model_wall_moderate_max_px','model_mass_threshold_pct','model_airloss_cuts',
+      'notes','exported_at'];
+    const ts=new Date().toISOString();
+    const rows=imgs.map((r,i)=>{
+      const m=r.metrics||{};const roi=r.roi||{x:'',y:'',w:'',h:''};const est=r.est?r.est.grade:'';
+      return [i+1,r.name,r.region,est,r.ash,
+        fx(m.wallMedian),fx(m.wallMean),
+        fx(m.massFrac),fx(m.tissuePct),fx(m.airspacePct),
+        fx(m.collagenOfTissue),fx(m.collagenOfEff),
+        fx(m.effectivePct),m.effective||'',m.airwayPx||0,m.periPx||0,m.artifactPx||0,m.airwayCount||0,m.medianAlveolus||0,
+        m.fallback||'',
+        roi.x,roi.y,roi.w,roi.h,r.w,r.h,
+        P.whiteV,P.whiteS,P.hmin,P.hmax,P.colS,
+        P.awMult,P.periBuf,P.artMask?1:0,P.massDist,
+        M.wn,M.wm,M.mt,M.al.join('|'),
+        r.notes,ts].map(csvCell).join(',');
+    });
+    const blob=new Blob([hdr.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='trichrome_quant_'+ts.slice(0,19).replace(/[:T]/g,'-')+'.csv';a.click();
+  }
+  function fx(v){return (v==null||isNaN(v)||!isFinite(v))?'':(+v).toFixed(2);}
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+  fileEl.onchange=e=>{addFiles(e.target.files);fileEl.value='';};
+  ;['dragover','dragenter'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.add('hot');}));
+  ;['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.remove('hot');}));
+  dropEl.addEventListener('drop',e=>{if(e.dataTransfer.files.length)addFiles(e.dataTransfer.files);});
+
+  $('viewseg').onclick=e=>{if(e.target.dataset.v){viewMode=e.target.dataset.v;[...e.currentTarget.children].forEach(b=>b.classList.toggle('on',b.dataset.v===viewMode));drawView();}};
+  $('showExcl').onchange=e=>{showExcl=e.target.checked;drawView();};
+  $('roireset').onclick=()=>{const r=cur();if(!r)return;r.roi=null;roitxtEl.textContent='full image';safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();};
+  ashEl.onchange=()=>{const r=cur();if(!r)return;r.ash=ashEl.value;renderStrip();renderTable();};
+  regionEl.oninput=()=>{const r=cur();if(r){r.region=regionEl.value;}};
+  regionEl.onblur=()=>renderTable();
+  notesEl.oninput=()=>{const r=cur();if(r)r.notes=notesEl.value;};
+  $('export').onclick=exportCSV;
+  $('recalcAll').onclick=recomputeAll;
+  $('useest').onclick=()=>{const r=cur();if(!r||!r.est)return;r.ash=String(r.est.grade);ashEl.value=r.ash;renderStrip();renderTable();};
+
+  function refreshModelLabels(){
+    $('lwn').textContent=M.wn.toFixed(1)+' px';
+    $('lwm').textContent=M.wm.toFixed(1)+' px';
+    $('lmt').textContent=M.mt+'%';
+    $('m_al').value=M.al.join(',');
+  }
+  function applyModel(){reEstimateAll();renderMetrics();renderTable();renderStrip();}
+  $('m_wn').oninput=()=>{M.wn=parseFloat($('m_wn').value);refreshModelLabels();applyModel();};
+  $('m_wm').oninput=()=>{M.wm=parseFloat($('m_wm').value);refreshModelLabels();applyModel();};
+  $('m_mt').oninput=()=>{M.mt=parseFloat($('m_mt').value);refreshModelLabels();applyModel();};
+  $('m_al').onchange=()=>{
+    const parts=$('m_al').value.split(/[,\s|]+/).map(Number).filter(n=>!isNaN(n));
+    if(parts.length===5){M.al=parts.sort((a,b)=>a-b);}else{alert('Enter exactly 5 ascending numbers (tissue-% cutoffs for grades 3→8).');}
+    refreshModelLabels();applyModel();
+  };
+  $('m_reset').onclick=()=>{M.wn=Mdef.wn;M.wm=Mdef.wm;M.mt=Mdef.mt;M.al=Mdef.al.slice();
+    $('m_wn').value=M.wn;$('m_wm').value=M.wm;$('m_mt').value=M.mt;refreshModelLabels();applyModel();};
+
+  function bindSlider(id, key, labId, fmt){
+    const el=$(id);
+    el.oninput=()=>{
+      P[key]=parseFloat(el.value);
+      $(labId).textContent=fmt(el.value);
+      const r=cur();if(r){safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();}
+    };
+  }
+  bindSlider('whiteV','whiteV','lwv',v=>(+v).toFixed(2));
+  bindSlider('whiteS','whiteS','lws',v=>(+v).toFixed(2));
+  bindSlider('hmin','hmin','lhmin',v=>v+'°');
+  bindSlider('hmax','hmax','lhmax',v=>v+'°');
+  bindSlider('colS','colS','lcs',v=>(+v).toFixed(2));
+  bindSlider('awMult','awMult','lawm',v=>(+v).toFixed(1)+'×');
+  bindSlider('periBuf','periBuf','lpb',v=>v+' px');
+  bindSlider('massDist','massDist','lmd_px',v=>v+' px');
+  $('artMask').onchange=e=>{P.artMask=e.target.checked;const r=cur();if(r){safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();}};
+
+  viewEl.addEventListener('mousedown',startDrag);window.addEventListener('mousemove',moveDrag);window.addEventListener('mouseup',endDrag);
+  viewEl.addEventListener('touchstart',startDrag,{passive:false});viewEl.addEventListener('touchmove',moveDrag,{passive:false});viewEl.addEventListener('touchend',endDrag);
+  window.addEventListener('resize',()=>{drawView();drawScatter(imgs.filter(r=>r.ash!==''&&r.metrics));});
+
+  window.addEventListener('error',e=>{showErr('uncaught: '+e.message+(e.filename?` @ ${e.filename}:${e.lineno}`:''));});
+})();
+</script>
+</body>
+</html>
