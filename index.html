@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trichrome Lung Quantifier — Sandbo Lab (v4)</title>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
+<script>
+(function(){
+  function load(src){var s=document.createElement('script');s.src=src;s.async=false;document.head.appendChild(s);}
+  window.addEventListener('DOMContentLoaded',function(){
+    if(typeof UTIF==='undefined'){load('https://unpkg.com/utif@3.1.0/UTIF.min.js');}
+    setTimeout(function(){if(typeof UTIF==='undefined'){load('https://cdnjs.cloudflare.com/ajax/libs/UTIF.js/3.1.0/UTIF.min.js');}},150);
+  });
+})();
+</script>
+<style>
+  :root{
+    --paper:#f6f4ef; --panel:#fffdf9; --ink:#22262b; --muted:#6b6f76; --faint:#9a9ea5;
+    --line:#e3ded3; --line2:#d2ccbd;
+    --accent:#146b7e; --collagen:#1f7a9c; --tissue:#c25b86; --nuclei:#6a4d8a; --dense:#b9760f; --air:#efece4;
+    --airway:#4a4a52; --peri:#d6b948; --artifact:#a049a0; --vessel:#8a3a3a; --offslide:#cfcabb;
+    --good:#2f8259; --warn:#c47018; --bad:#a83232;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1820px;margin:0 auto;padding:22px 22px 80px}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:1.5px solid var(--ink);padding-bottom:12px;margin-bottom:6px}
+  header.top h1{font-family:var(--serif);font-weight:600;font-size:25px;margin:0;letter-spacing:.2px}
+  header.top h1 .ver{font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:500;margin-left:8px;padding:2px 6px;border:1px solid var(--accent);border-radius:3px;vertical-align:middle}
+  header.top .sub{color:var(--muted);font-size:12.5px;letter-spacing:.04em}
+  .lede{color:var(--muted);font-size:13px;margin:10px 0 14px;max-width:880px}
+  .small-caps{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .grid{display:grid;grid-template-columns:200px minmax(0,1fr) 320px;gap:16px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+  .panel h2{font-family:var(--serif);font-size:15px;margin:0 0 10px;font-weight:600}
+  .drop{border:1.5px dashed var(--line2);border-radius:7px;padding:14px 12px;text-align:center;cursor:pointer;transition:.15s;background:#fff}
+  .drop:hover,.drop.hot{border-color:var(--accent);background:#f0f6f7}
+  .drop .big{font-size:13px;font-weight:600}
+  .drop .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+  input[type=file]{display:none}
+  .imgs-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .imgs-sub{font-size:11px;color:var(--muted);margin:7px 0 9px;font-family:var(--mono);line-height:1.3;word-break:break-word}
+  .imgs-sub b{color:var(--accent);font-weight:600}
+  .strip{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:64vh;overflow:auto}
+  .thumb{display:flex;gap:9px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:#fff;position:relative}
+  .thumb.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .thumb img{width:46px;height:34px;object-fit:cover;border-radius:3px;background:#eee;flex:none}
+  .thumb .nm{font-size:11.5px;line-height:1.25;word-break:break-all}
+  .thumb .mini{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .thumb .sc{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--accent);flex:none;text-align:right}
+  .thumb .sc .truth{color:var(--muted);font-weight:600;display:block;font-size:9.5px;line-height:1}
+  .thumb .rm{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1}
+  .thumb .rm:hover{color:var(--tissue)}
+  .stage-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .toggles{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .navgrp{display:inline-flex;align-items:center;gap:4px;margin-left:4px}
+  .navbtn{border:1px solid var(--line2);background:#fff;border-radius:6px;width:32px;height:30px;font-size:19px;line-height:1;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0}
+  .navbtn:hover:not(:disabled){background:#f0f6f7;border-color:var(--accent)}
+  .navbtn:disabled{opacity:.4;cursor:not-allowed}
+  .navcount{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:54px;text-align:center}
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:6px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
+  .seg button.on{background:var(--ink);color:#fff}
+  .canvas-area{position:relative;background:#fbfaf6;border:1px solid var(--line);border-radius:7px;overflow:hidden;min-height:420px;display:flex;align-items:center;justify-content:center}
+  #view{display:block;max-width:100%;cursor:crosshair;touch-action:none}
+  .roihint{position:absolute;top:8px;left:10px;background:rgba(34,38,43,.78);color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;pointer-events:none}
+  .scaletag{position:absolute;top:8px;right:10px;background:rgba(20,107,126,.86);color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;font-family:var(--mono);pointer-events:none;display:none}
+  .scaletag.found{display:block}
+  .empty{color:var(--faint);font-size:13px;padding:120px 20px;text-align:center}
+  .roi-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .btn{border:1px solid var(--line2);background:#fff;border-radius:6px;padding:6px 11px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+  .btn:hover{background:#f0f6f7;border-color:var(--accent)}
+  .btn.solid{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.solid:hover{background:#0f5867}
+  .btn.tiny{padding:4px 8px;font-size:11.5px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .chk input{cursor:pointer}
+  .err{background:#fbe9e9;border:1px solid #e2b1b1;color:#8a2424;font-size:11.5px;padding:6px 10px;border-radius:5px;margin:6px 0;font-family:var(--mono);white-space:pre-wrap;display:none}
+  .warn{background:#fbf5e6;border:1px solid #e0cf8d;color:#7a5d12;font-size:11px;padding:5px 9px;border-radius:5px;margin:6px 0;display:none}
+  .mrow{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+  .mrow:last-child{border-bottom:none}
+  .mrow .lab{font-size:12.5px}
+  .mrow .lab small{display:block;color:var(--faint);font-size:10.5px;letter-spacing:.02em}
+  .mrow .val{font-family:var(--mono);font-size:16px;font-weight:500}
+  .mrow .val small{font-size:10.5px;color:var(--muted)}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .ash{display:flex;align-items:center;gap:8px;margin:6px 0 2px}
+  .estbox{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#eef5f6;border:1px solid #bcdce1;border-radius:7px;padding:9px 12px;margin:-2px 0 3px}
+  .estgrade{font-family:var(--mono);font-size:27px;font-weight:600;line-height:1;color:var(--accent)}
+  .estgrade .cont{font-size:13px;color:var(--muted);margin-left:5px;font-weight:400}
+  .estwhy{font-size:11px;color:var(--muted);margin:0 0 12px;min-height:14px;line-height:1.35}
+  .featbar{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+  .featbar .lab{flex:none;width:84px}
+  .featbar .track{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden;position:relative}
+  .featbar .track i{display:block;height:100%;background:var(--accent)}
+  .featbar .v{flex:none;width:32px;text-align:right}
+  select,input[type=text],input[type=number]{font-family:var(--sans);font-size:13px;padding:6px 8px;border:1px solid var(--line2);border-radius:6px;background:#fff;color:var(--ink)}
+  select{cursor:pointer}
+  textarea{width:100%;font-family:var(--sans);font-size:12.5px;padding:7px 8px;border:1px solid var(--line2);border-radius:6px;resize:vertical;min-height:42px}
+  details.controls{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  details.controls>summary{cursor:pointer;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;list-style:none}
+  details.controls>summary::-webkit-details-marker{display:none}
+  details.controls>summary::before{content:"▸ ";color:var(--faint)}
+  details.controls[open]>summary::before{content:"▾ "}
+  .ctl{margin:11px 0}
+  .ctl label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+  .ctl label b{font-family:var(--mono);color:var(--ink);font-weight:500}
+  input[type=range]{width:100%}
+  .ctl.dual{display:flex;gap:10px}.ctl.dual>div{flex:1}
+  .sec-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 0 4px;padding-top:8px;border-top:1px dashed var(--line)}
+  .sheetbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .sheetbar select{min-width:150px;font-weight:600}
+  .summary-pills{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+  .pill{font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--line2);border-radius:14px;padding:3px 9px;font-family:var(--mono)}
+  .pill b{color:var(--accent);font-weight:600;margin-left:3px}
+  .pill.good b{color:var(--good)} .pill.warn b{color:var(--warn)} .pill.bad b{color:var(--bad)}
+  .tablewrap{overflow-x:auto;margin-top:8px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;border-bottom:1.5px solid var(--line2)}
+  td.l,th.l{text-align:left}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#f0f6f7}
+  tbody tr.active{background:#e9f2f3}
+  td .mono{font-family:var(--mono)}
+  .delta-ok{color:var(--good)} .delta-warn{color:var(--warn)} .delta-bad{color:var(--bad)}
+  .corr{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px}
+  .corr .stat{font-family:var(--mono)}
+  .corr b{color:var(--accent)}
+  .ref table{font-size:12px}
+  .ref td.l{white-space:normal;max-width:560px;color:var(--muted)}
+  .ref td:first-child{font-family:var(--mono);font-weight:600;color:var(--ink);text-align:center;width:34px}
+  .footnote{color:var(--faint);font-size:11.5px;margin-top:8px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}
+  .legend span b{font-weight:500;color:var(--ink)}
+  .bar{height:9px;border-radius:3px;display:flex;overflow:hidden;border:1px solid var(--line);margin-top:4px}
+  .bar i{display:block;height:100%}
+  .scalebox{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin:4px 0}
+  .scalebox input{width:70px;font-family:var(--mono)}
+  .truthchip{display:inline-block;font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:3px;background:#f3eedd;color:var(--warn);margin-left:5px}
+  .vstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:10px 0}
+  .vstat{background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+  .vstat .lab{font-size:10.5px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+  .vstat .val{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--ink);margin-top:2px}
+  .vstat .val.good{color:var(--good)} .vstat .val.warn{color:var(--warn)} .vstat .val.bad{color:var(--bad)}
+  .vstat .sub{font-size:10.5px;color:var(--muted);margin-top:1px}
+
+  body.blind .est-only{display:none !important}
+  body.blind .estbox-blind{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:repeating-linear-gradient(45deg,#22262b,#22262b 8px,#2b2f35 8px,#2b2f35 16px);color:#7dd3c0;padding:16px;border-radius:7px;margin:-2px 0 12px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;border:1px solid #3a3f47}
+  body:not(.blind) .estbox-blind{display:none}
+  .estbox-blind button{background:transparent;border:1px solid #7dd3c0;color:#7dd3c0;padding:5px 13px;border-radius:5px;font-size:11.5px;cursor:pointer;font-family:inherit;letter-spacing:.06em}
+  .estbox-blind button:hover{background:#7dd3c0;color:#22262b}
+  .rehide{display:none;background:none;border:none;color:var(--faint);font-size:10.5px;cursor:pointer;padding:2px 4px;margin-left:6px;text-decoration:underline}
+  .rehide:hover{color:var(--accent)}
+  body:not(.blind) .rehide{display:inline-block}
+</style>
+</head>
+<body class="blind">
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Trichrome Lung Quantifier<span class="ver">v4 · 06.12.26</span></h1>
+      <div class="sub">Masson's trichrome fibrosis quantification · Sandbo Lab prototype</div>
+    </div>
+    <div class="sub" style="text-align:right">by Tristan Tetting and Maggie Osterhaus</div>
+  </header>
+
+  <p class="lede">Organize work into <b>sheets</b> — one per mouse / whole lung. Each sheet keeps its own images and scores. Use the <b>‹ ›</b> arrows (or ← →) to step through fields. Pixels are classified by <b>stain-aware color deconvolution</b> (Ruifrok–Johnston, with HSV fallback), and structural features — alveolar wall thickness (in μm when the scale bar is detected), fibrotic-mass extent, airspace loss, and collagen density — drive a continuous Ashcroft estimate. A built-in <b>RT 81-3 ground-truth set</b> (37 fields, 3-rater consensus) lets the tool show its own accuracy live.</p>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="imgs-head">
+        <h2 style="margin:0">Images</h2>
+        <button class="btn tiny" id="clearAll" title="remove every image in this sheet">Clear</button>
+      </div>
+      <div class="imgs-sub">sheet <b id="sheetNameLbl">Sheet 1</b><br><span id="imgCount">0 images</span></div>
+      <label class="drop" id="drop">
+        <div class="big">Drop or click to add</div>
+        <div class="hint">JPG · PNG · TIFF · multiple at once</div>
+        <input type="file" id="file" accept="image/*,.tif,.tiff" multiple>
+      </label>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div class="panel">
+      <div class="stage-head">
+        <div style="display:flex;align-items:center;gap:6px">
+          <h2 style="margin:0">Field viewer</h2>
+          <div class="navgrp">
+            <button class="navbtn" id="prevBtn" title="previous (←)" disabled>‹</button>
+            <span class="navcount" id="navcount">0 / 0</span>
+            <button class="navbtn" id="nextBtn" title="next (→)" disabled>›</button>
+          </div>
+        </div>
+        <div class="toggles">
+          <label class="chk" title="Tint excluded airways / vessels / peri-airway / off-slide / artifacts"><input type="checkbox" id="showExcl" checked> exclusions</label>
+          <div class="seg" id="viewseg">
+            <button data-v="orig" class="on">Original</button>
+            <button data-v="overlay">Classified</button>
+            <button data-v="collagen">Collagen ch.</button>
+            <button data-v="walls">Wall map</button>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-area" id="area">
+        <div class="empty" id="empty">No image selected.<br>Add images on the left to begin.</div>
+        <canvas id="view" style="display:none"></canvas>
+        <div class="roihint" id="roihint" style="display:none">drag to set ROI</div>
+        <div class="scaletag" id="scaletag"></div>
+      </div>
+      <div class="roi-row">
+        <span class="small-caps">ROI</span>
+        <span id="roitxt" class="mono" style="font-family:var(--mono)">full image</span>
+        <button class="btn tiny" id="roireset" style="margin-left:auto">Use full image</button>
+      </div>
+      <div class="scalebox">
+        <span class="small-caps">Scale</span>
+        <span id="scaleAutoLbl" style="font-family:var(--mono)">—</span>
+        <span style="margin-left:auto">override μm/px</span>
+        <input type="number" id="scaleOverride" placeholder="auto" step="0.01" min="0">
+        <button class="btn tiny" id="scaleApply">apply</button>
+        <button class="btn tiny" id="scaleClear" title="clear override, return to auto">×</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--collagen)"></span><b>collagen</b> (blue)</span>
+        <span><span class="swatch" style="background:var(--tissue)"></span><b>cytoplasm</b> (pink/red)</span>
+        <span><span class="swatch" style="background:var(--nuclei)"></span><b>nuclei</b> (purple)</span>
+        <span><span class="swatch" style="background:var(--air)"></span><b>alveolar space</b></span>
+        <span><span class="swatch" style="background:var(--airway)"></span><b>airway</b> (excl.)</span>
+        <span><span class="swatch" style="background:var(--vessel)"></span><b>vessel</b> (excl.)</span>
+        <span><span class="swatch" style="background:var(--peri)"></span><b>peri-airway</b></span>
+        <span><span class="swatch" style="background:var(--offslide)"></span><b>off-slide</b></span>
+        <span><span class="swatch" style="background:var(--artifact)"></span><b>artifact / bar</b></span>
+      </div>
+
+      <details class="controls" id="controls">
+        <summary>Stain classification &amp; exclusion thresholds (global · recorded in export)</summary>
+
+        <div class="sec-title" style="border-top:none;padding-top:0;margin-top:6px">Color model</div>
+        <div class="seg" id="stainseg" style="margin-bottom:6px">
+          <button data-s="trichrome" class="on">Trichrome (deconv)</button>
+          <button data-s="he">H&amp;E (deconv)</button>
+          <button data-s="hsv">HSV fallback</button>
+        </div>
+        <p class="footnote" style="margin:2px 0 6px">Trichrome/H&amp;E use Ruifrok–Johnston stain matrices to separate collagen, cytoplasm, and nuclei. HSV is the legacy classifier — useful if a slide's stain is washed-out and deconv flags everything as background.</p>
+
+        <div class="sec-title">Pixel classification</div>
+        <div class="ctl"><label>Airspace brightness ≥ <b id="lwv">0.85</b></label><input type="range" id="whiteV" min="0.5" max="1" step="0.01" value="0.85"></div>
+        <div class="ctl"><label>Airspace max saturation ≤ <b id="lws">0.10</b></label><input type="range" id="whiteS" min="0.02" max="0.4" step="0.01" value="0.10"></div>
+        <div class="ctl"><label>Collagen channel OD ≥ <b id="lcol">0.22</b> <span style="color:var(--faint)">(deconv)</span></label><input type="range" id="colOd" min="0.05" max="0.8" step="0.01" value="0.22"></div>
+        <div class="ctl"><label>Nuclei channel OD ≥ <b id="lnuc">0.35</b> <span style="color:var(--faint)">(deconv)</span></label><input type="range" id="nucOd" min="0.1" max="1" step="0.01" value="0.35"></div>
+        <div class="ctl dual">
+          <div><label>HSV collagen hue min <b id="lhmin">165°</b></label><input type="range" id="hmin" min="80" max="200" step="1" value="165"></div>
+          <div><label>HSV collagen hue max <b id="lhmax">255°</b></label><input type="range" id="hmax" min="200" max="300" step="1" value="255"></div>
+        </div>
+        <div class="ctl"><label>HSV collagen min saturation ≥ <b id="lcs">0.18</b></label><input type="range" id="colS" min="0.03" max="0.5" step="0.01" value="0.18"></div>
+
+        <div class="sec-title">Airway · vessel · peri-airway exclusion</div>
+        <div class="ctl"><label>Airway when airspace blob ≥ <b id="lawm">12×</b> median alveolus</label><input type="range" id="awMult" min="4" max="40" step="0.5" value="12"></div>
+        <div class="ctl"><label>Peri-airway buffer <b id="lpb">10 px</b></label><input type="range" id="periBuf" min="0" max="40" step="1" value="10"></div>
+        <label class="chk" style="margin:6px 0 2px"><input type="checkbox" id="vessExcl" checked> Auto-detect & exclude vessels (round tissue blobs with RBC/lumen interior)</label>
+        <label class="chk" style="margin:4px 0 2px"><input type="checkbox" id="offExcl" checked> Auto-detect & exclude off-slide white frame</label>
+        <label class="chk" style="margin:4px 0 2px"><input type="checkbox" id="artMask" checked> Auto-mask scale bar / text panels / dark borders</label>
+
+        <div class="sec-title">Fibrotic-mass detector</div>
+        <div class="ctl"><label>Tissue pixel is a "mass" if dist. to airspace &gt; <b id="lmd_px">5 px</b></label><input type="range" id="massDist" min="2" max="20" step="1" value="5"></div>
+
+        <button class="btn" id="recalcAll" style="margin-top:6px">Recompute all images</button>
+        <p class="footnote">Stain matrices: trichrome — collagen [0.799, 0.591, 0.105], cytoplasm [0.099, 0.737, 0.668], nuclei [0.650, 0.704, 0.286]. H&amp;E — eosin [0.072, 0.990, 0.105], nuclei [0.644, 0.717, 0.267]. Airway detection erodes the airspace mask 2 px first; flagged components ≥ N× median alveolus and ≤ 15% ROI become airways, then the peri-airway buffer extends the exclusion. Vessel detection finds round tissue islands ≥ 0.6 circularity surrounded by collagen/RBCs.</p>
+      </details>
+    </div>
+
+    <div class="panel">
+      <h2>This field</h2>
+      <div id="fname" class="small-caps" style="margin:-4px 0 8px;color:var(--muted);word-break:break-all">—</div>
+      <div class="err" id="errbox"></div>
+      <div class="warn" id="warnbox"></div>
+
+      <div class="est-only">
+        <div class="estbox" id="estbox">
+          <div>
+            <div class="small-caps" style="color:var(--accent)">Estimated Ashcroft<button class="rehide" id="rehideBtn" title="hide estimates again">hide</button></div>
+            <div class="estgrade"><span id="estgrade">—</span><span class="cont" id="estcont"></span></div>
+          </div>
+          <button class="btn" id="useest" disabled title="copy estimate into the lab score">use →</button>
+        </div>
+        <div class="estwhy" id="estwhy">add an image to estimate</div>
+        <div id="featbars"></div>
+      </div>
+      <div class="estbox-blind">
+        <span>◼ ESTIMATE HIDDEN</span>
+        <button id="revealBtn">reveal all estimates →</button>
+      </div>
+
+      <div class="ash">
+        <span class="small-caps" style="flex:none">Lab score<br><span style="font-weight:400;letter-spacing:0;text-transform:none">(manual)</span></span>
+        <select id="ash"><option value="">— not scored —</option></select>
+        <span id="truthchip" style="display:none" class="truthchip" title="RT 81-3 3-rater mean (built-in reference)"></span>
+      </div>
+      <input type="text" id="region" placeholder="region label (e.g. LLL field 2)" style="width:100%;margin:6px 0">
+      <textarea id="notes" placeholder="notes (folds, artifacts, what you excluded…)"></textarea>
+
+      <div style="margin-top:14px">
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--dense)"></span>Wall thickness, median<small>median tissue→airspace distance</small></div><div class="val" id="m_wt">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--dense)"></span>Wall thickness, P90<small>top 10% (worst regions)</small></div><div class="val" id="m_wt90">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--dense)"></span>Fibrotic-mass fraction<small>tissue far from any airspace ÷ analyzed</small></div><div class="val" id="m_mass">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--tissue)"></span>Tissue fraction<small>non-airspace ÷ analyzed</small></div><div class="val" id="m_tis">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--air)"></span>Airspace fraction<small>alveolar ÷ analyzed</small></div><div class="val" id="m_air">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--collagen)"></span>Collagen, % of tissue<small>blue ÷ (blue+pink+nuclei)</small></div><div class="val" id="m_col">—</div></div>
+        <div class="mrow"><div class="lab" style="color:var(--muted)">Analyzed area<small>(ROI − airways − vessels − peri − off-slide − artifact) ÷ ROI</small></div><div class="val" id="m_eff" style="font-size:14px;color:var(--muted)">—</div></div>
+      </div>
+      <div class="bar" id="compbar" title="composition of analyzed area"><i style="background:var(--air);width:100%"></i></div>
+      <p class="footnote" id="pxnote">—</p>
+
+      <details class="controls est-only" id="modelctl" style="margin-top:12px">
+        <summary>Ashcroft estimator (continuous, multi-feature)</summary>
+        <p class="footnote" style="margin:8px 0">Continuous score 0–8 from a weighted sum of structural features. Defaults are calibrated against the built-in RT 81-3 3-rater consensus (37 fields, MAE shown in the validation panel).</p>
+        <div class="sec-title" style="border-top:none;padding-top:0">Feature weights (sum to 1.0 — auto-normalized)</div>
+        <div class="ctl"><label>wall thickness <b id="lw_w">0.20</b></label><input type="range" id="w_wall" min="0" max="1" step="0.01" value="0.20"></div>
+        <div class="ctl"><label>fibrotic mass <b id="lm_w">0.30</b></label><input type="range" id="w_mass" min="0" max="1" step="0.01" value="0.30"></div>
+        <div class="ctl"><label>airspace loss <b id="la_w">0.40</b></label><input type="range" id="w_air" min="0" max="1" step="0.01" value="0.40"></div>
+        <div class="ctl"><label>collagen density <b id="lc_w">0.10</b></label><input type="range" id="w_col" min="0" max="1" step="0.01" value="0.10"></div>
+        <div class="sec-title">Wall-thickness anchors (μm)</div>
+        <div class="ctl dual">
+          <div><label>0 anchor <b id="lwn">0.4 μm</b></label><input type="range" id="m_wn" min="0.1" max="4" step="0.1" value="0.4"></div>
+          <div><label>8 anchor <b id="lwx">8 μm</b></label><input type="range" id="m_wx" min="4" max="40" step="0.5" value="8"></div>
+        </div>
+        <div class="sec-title">Mass-fraction anchors</div>
+        <div class="ctl dual">
+          <div><label>0 anchor <b id="lmn">2%</b></label><input type="range" id="m_mn" min="0" max="10" step="0.5" value="2"></div>
+          <div><label>8 anchor <b id="lmx">65%</b></label><input type="range" id="m_mx" min="20" max="90" step="1" value="65"></div>
+        </div>
+        <div class="sec-title">Airspace-loss anchors (% tissue of analyzed)</div>
+        <div class="ctl dual">
+          <div><label>0 anchor <b id="lan">20%</b></label><input type="range" id="m_an" min="10" max="60" step="1" value="20"></div>
+          <div><label>8 anchor <b id="lax">60%</b></label><input type="range" id="m_ax" min="40" max="100" step="1" value="60"></div>
+        </div>
+        <button class="btn" id="m_reset" style="margin-top:4px">Reset to calibrated defaults</button>
+      </details>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <div class="sheetbar">
+        <h2 style="margin:0">Session table</h2>
+        <select id="sheetSel" title="switch mouse / whole-lung sheet"></select>
+        <button class="btn tiny" id="newSheet">+ New sheet</button>
+        <button class="btn tiny" id="renameSheet">Rename</button>
+        <button class="btn tiny" id="delSheet">Delete</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" id="loadRef" title="load CSV of reference scores: filename,score">Load reference CSV</button>
+        <button class="btn" id="export">Export sheet</button>
+        <button class="btn solid" id="exportAll">Export all sheets</button>
+      </div>
+    </div>
+    <div class="summary-pills est-only" id="sheetSummary"></div>
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th class="l">#</th><th class="l">File / region</th>
+          <th class="est-col">Est.</th><th>Lab</th><th class="ref-col">Ref.</th>
+          <th>Wall μm</th><th>P90 μm</th><th>Mass %</th><th>Tissue %</th><th>Airsp %</th><th>Coll %tis</th><th>Anlz %</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="13" class="l" style="color:var(--faint)">No images yet.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="corr est-only" id="corr"></div>
+    <svg id="scatter" class="est-only" width="100%" height="0" style="margin-top:6px;display:none"></svg>
+  </div>
+
+  <div class="panel est-only" id="validationPanel" style="margin-top:18px;display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <h2 style="margin:0">Validation vs reference</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="small-caps" id="validationSource" style="color:var(--muted)">RT 81-3 · 3-rater mean</span>
+        <button class="btn tiny" id="clearRef">clear reference</button>
+      </div>
+    </div>
+    <div class="vstats" id="vstats"></div>
+    <p class="footnote" id="vnote"></p>
+  </div>
+
+  <div class="panel ref" style="margin-top:18px">
+    <details>
+      <summary style="cursor:pointer;font-family:var(--serif);font-size:15px;font-weight:600">Ashcroft scoring reference (0–8)</summary>
+      <table style="margin-top:10px">
+        <thead><tr><th>Grade</th><th class="l">Histological criteria</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td class="l">Normal lung.</td></tr>
+          <tr><td>1</td><td class="l">Minimal fibrous thickening of alveolar or bronchiolar walls.</td></tr>
+          <tr><td>2</td><td class="l">Moderate thickening of walls without obvious damage to lung architecture.</td></tr>
+          <tr><td>3</td><td class="l">Increased fibrosis with definite damage to lung structure and formation of fibrous bands or small fibrous masses.</td></tr>
+          <tr><td>4</td><td class="l">Severe distortion of structure and large fibrous areas; "honeycomb lung" placed in this category.</td></tr>
+          <tr><td>5</td><td class="l">Confluent fibrous masses with definite damage; some preserved airspaces remain.</td></tr>
+          <tr><td>6</td><td class="l">Large contiguous fibrous masses; only occasional airspaces, largely filled with cells/debris.</td></tr>
+          <tr><td>7</td><td class="l">Severe distortion; airspaces nearly obliterated, occasional air bubbles only.</td></tr>
+          <tr><td>8</td><td class="l">Total fibrous obliteration of the field.</td></tr>
+        </tbody>
+      </table>
+      <p class="footnote">Modified Ashcroft scale (Ashcroft et al. 1988; Hübner et al. 2008). Score the worst-affected representative high-power field.</p>
+    </details>
+  </div>
+
+  <p class="footnote" style="margin-top:18px">Prototype. All processing is local — closing the tab clears every sheet, so export before you leave. Each loaded image holds its full bitmap in memory; for very large sets work one mouse per sheet and export as you go. The RT 81-3 reference set ships with the tool: when you load files named <code>1.tif</code>–<code>37.tif</code> the validation panel automatically scores the tool against the 3-rater consensus.</p>
+</div>
+
+<script>
+"use strict";
+(function(){
+  const ASH_MAX=8, ANALYSIS_MAX=1400;
+  const AIR=0, TIS=1, COL=2, NUC=3;
+
+  // Built-in RT 81-3 ground truth (3-rater mean of Trevor/Thomas/Kenneth, per-field).
+  const RT81_3_TRUTH = {
+    "1.tif":2.333,"2.tif":1.333,"3.tif":1.667,"4.tif":2.0,"5.tif":2.0,"6.tif":1.333,"7.tif":1.0,
+    "8.tif":1.0,"9.tif":0.667,"10.tif":1.667,"11.tif":1.333,"12.tif":2.0,"13.tif":0.667,"14.tif":1.333,
+    "15.tif":1.667,"16.tif":1.0,"17.tif":1.0,"18.tif":1.333,"19.tif":0.667,"20.tif":1.0,"21.tif":1.333,
+    "22.tif":2.667,"23.tif":1.333,"24.tif":2.333,"25.tif":2.0,"26.tif":2.0,"27.tif":1.333,"28.tif":0.333,
+    "29.tif":1.667,"30.tif":1.333,"31.tif":1.333,"32.tif":1.667,"33.tif":1.0,"34.tif":1.0,"35.tif":1.0,
+    "36.tif":1.333,"37.tif":0.667
+  };
+  const RT81_3_SOURCE = "RT 81-3 · 3-rater mean (Trevor, Thomas, Kenneth)";
+  // Active reference table: filename → expected score. Starts as RT 81-3 built-in.
+  let refTable = Object.assign({}, RT81_3_TRUTH);
+  let refSourceLabel = RT81_3_SOURCE;
+  // Match a filename to a reference key: case-insensitive, allow path prefixes, allow with/without .tif
+  function refLookup(name){
+    if(!name) return null;
+    const base = name.replace(/^.*[\/\\]/,'').toLowerCase();
+    if(refTable[base]!=null) return refTable[base];
+    const stem = base.replace(/\.[a-z0-9]+$/,'');
+    for(const k of Object.keys(refTable)){
+      const kbase = k.toLowerCase();
+      if(kbase===base) return refTable[k];
+      if(kbase.replace(/\.[a-z0-9]+$/,'')===stem) return refTable[k];
+    }
+    return null;
+  }
+
+  // Stain matrices (Ruifrok–Johnston).  Rows: collagen/cytoplasm/nuclei. Each row = OD vector in RGB.
+  const STAINS = {
+    trichrome: [
+      [0.799, 0.591, 0.105], // methyl/aniline blue → collagen
+      [0.099, 0.737, 0.668], // Biebrich scarlet / ponceau → cytoplasm
+      [0.650, 0.704, 0.286]  // hematoxylin → nuclei
+    ],
+    he: [
+      // H&E has no collagen channel — repurpose "collagen" slot as a weak fallback
+      // using a desaturated mid-blue residual; not used unless deconv yields strong signal
+      [0.268, 0.570, 0.776],
+      [0.072, 0.990, 0.105], // eosin → pink cytoplasm
+      [0.644, 0.717, 0.267]  // hematoxylin → nuclei
+    ]
+  };
+  // Precompute inverse stain matrix for fast deconvolution.
+  // Beer–Lambert in OD space:  OD = T · C, where T has stain OD vectors as COLUMNS.
+  // STAINS stores stain vectors as ROWS, so we transpose first, then invert.
+  function buildInverse(name){
+    const M = STAINS[name];
+    const N = M.map(r=>{ const n=Math.hypot(r[0],r[1],r[2])||1; return [r[0]/n,r[1]/n,r[2]/n]; });
+    // T = N^T : stains-as-columns
+    const a=N[0][0], b=N[1][0], c=N[2][0],
+          d=N[0][1], e=N[1][1], f=N[2][1],
+          g=N[0][2], h=N[1][2], i=N[2][2];
+    const det = a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g);
+    if(Math.abs(det)<1e-9) return null;
+    const inv = [
+      [(e*i-f*h)/det, (c*h-b*i)/det, (b*f-c*e)/det],
+      [(f*g-d*i)/det, (a*i-c*g)/det, (c*d-a*f)/det],
+      [(d*h-e*g)/det, (b*g-a*h)/det, (a*e-b*d)/det]
+    ];
+    return {N, inv};
+  }
+  const STAIN_INV = {trichrome:buildInverse('trichrome'), he:buildInverse('he')};
+
+  let sheets=[], activeSheet=null;
+  let imgs=[], curId=null;
+  let viewMode='orig', dragging=null, showExcl=true, blind=true;
+
+  const P={
+    stain:'trichrome',
+    whiteV:0.85, whiteS:0.10,
+    colOd:0.22, nucOd:0.35,           // deconvolution thresholds
+    hmin:165, hmax:255, colS:0.18,    // HSV legacy
+    awMult:12, periBuf:10, massDist:5,
+    vessExcl:true, offExcl:true, artMask:true
+  };
+  // Defaults calibrated against the RT 81-3 3-rater consensus by anchor sweep
+  // (MAE 0.27, RMSE 0.34, within±1 100%, Pearson r 0.76 on 37 fields).
+  const Mdef={wn:0.4, wx:8, mn:2, mx:65, an:20, ax:60, ww:0.20, wm:0.30, wa:0.40, wc:0.10};
+  const M={...Mdef};
+
+  const $=id=>document.getElementById(id);
+  const fileEl=$('file'),dropEl=$('drop'),stripEl=$('strip'),areaEl=$('area'),emptyEl=$('empty'),
+        viewEl=$('view'),vctx=viewEl.getContext('2d'),roihintEl=$('roihint'),roitxtEl=$('roitxt'),
+        ashEl=$('ash'),regionEl=$('region'),notesEl=$('notes'),fnameEl=$('fname'),tbodyEl=$('tbody'),
+        corrEl=$('corr'),errEl=$('errbox'),warnEl=$('warnbox'),sheetSelEl=$('sheetSel');
+
+  for(let i=0;i<=ASH_MAX;i++){const o=document.createElement('option');o.value=i;o.textContent=i;ashEl.appendChild(o);}
+
+  function makeSheet(name){return {id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name, imgs:[], curId:null};}
+  function useSheet(s){activeSheet=s; imgs=s.imgs; curId=s.curId;}
+
+  function renderSheetSelect(){
+    sheetSelEl.innerHTML='';
+    sheets.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=`${s.name} (${s.imgs.length})`;if(s===activeSheet)o.selected=true;sheetSelEl.appendChild(o);});
+    $('delSheet').disabled = sheets.length<=1;
+  }
+  function renderImagesHeader(){
+    $('sheetNameLbl').textContent = activeSheet?activeSheet.name:'—';
+    $('imgCount').textContent = imgs.length+' image'+(imgs.length===1?'':'s');
+  }
+  function updateNav(){
+    const n=imgs.length; let idx=imgs.findIndex(x=>x.id===curId);
+    $('navcount').textContent = n? ((idx<0?1:idx+1)+' / '+n) : '0 / 0';
+    $('prevBtn').disabled = n<2; $('nextBtn').disabled = n<2;
+  }
+  function switchSheet(id){
+    const s=sheets.find(x=>x.id===id); if(!s) return;
+    useSheet(s);
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    const keep = curId && imgs.some(x=>x.id===curId);
+    select(keep?curId:(imgs.length?imgs[0].id:null));
+    renderTable();
+  }
+  function newSheet(){
+    const base='Sheet '+(sheets.length+1);
+    const name=prompt('Name this sheet (e.g., mouse ID like "RT 81-4"):', base);
+    if(name===null) return;
+    const s=makeSheet((name.trim()||base)); sheets.push(s); switchSheet(s.id);
+  }
+  function renameSheet(){
+    if(!activeSheet) return;
+    const name=prompt('Rename sheet:', activeSheet.name);
+    if(name===null) return;
+    activeSheet.name = name.trim()||activeSheet.name;
+    renderSheetSelect(); renderImagesHeader();
+  }
+  function deleteSheet(){
+    if(sheets.length<=1){alert('Can’t delete the last sheet.');return;}
+    if(!confirm(`Delete sheet "${activeSheet.name}" and its ${imgs.length} image(s)? This cannot be undone.`)) return;
+    const idx=sheets.indexOf(activeSheet);
+    sheets.splice(idx,1);
+    switchSheet(sheets[Math.max(0,idx-1)].id);
+  }
+  function clearAllImages(){
+    if(!imgs.length) return;
+    if(!confirm(`Remove all ${imgs.length} image(s) from sheet "${activeSheet.name}"? This cannot be undone.`)) return;
+    imgs.length=0; curId=null; if(activeSheet)activeSheet.curId=null;
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    select(null); renderTable();
+  }
+  function nav(dir){
+    if(!imgs.length) return;
+    let idx=imgs.findIndex(x=>x.id===curId); if(idx<0)idx=0;
+    idx=(idx+dir+imgs.length)%imgs.length;
+    select(imgs[idx].id);
+    const el=stripEl.querySelector('.thumb.active'); if(el)el.scrollIntoView({block:'nearest'});
+  }
+
+  // ---------- color utilities ----------
+  function rgb2hsv(r,g,b){
+    r/=255;g/=255;b/=255;
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+    let h=0;
+    if(d){
+      if(mx===r)h=((g-b)/d)%6;
+      else if(mx===g)h=(b-r)/d+2;
+      else h=(r-g)/d+4;
+      h*=60; if(h<0)h+=360;
+    }
+    return [h, mx?d/mx:0, mx];
+  }
+  function rgbToOD(r,g,b){
+    // OD = -log10((I+1)/256). Avoid log(0).
+    const Ir=(r+1)/256, Ig=(g+1)/256, Ib=(b+1)/256;
+    return [-Math.log10(Ir), -Math.log10(Ig), -Math.log10(Ib)];
+  }
+  function deconvPixel(r,g,b,inv){
+    const od=rgbToOD(r,g,b);
+    const c1=inv[0][0]*od[0]+inv[0][1]*od[1]+inv[0][2]*od[2];
+    const c2=inv[1][0]*od[0]+inv[1][1]*od[1]+inv[1][2]*od[2];
+    const c3=inv[2][0]*od[0]+inv[2][1]*od[1]+inv[2][2]*od[2];
+    return [Math.max(0,c1), Math.max(0,c2), Math.max(0,c3)];
+  }
+  function classifyDeconv(r,g,b,inv){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v>=P.whiteV && s<=P.whiteS) return AIR;
+    const [cCol, cCyt, cNuc] = deconvPixel(r,g,b,inv);
+    // Tie-break by dominant channel ABOVE threshold; default to TIS.
+    let bestK=-1, bestV=0;
+    if(cCol >= P.colOd && cCol > bestV){bestK=COL; bestV=cCol;}
+    if(cNuc >= P.nucOd && cNuc > bestV){bestK=NUC; bestV=cNuc;}
+    if(cCyt >= 0.15 && cCyt > bestV){bestK=TIS; bestV=cCyt;}
+    if(bestK<0) return TIS; // weakly stained → cytoplasm/parenchyma
+    return bestK;
+  }
+  function classifyHSV(r,g,b){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v>=P.whiteV && s<=P.whiteS) return AIR;
+    if(s>=P.colS && h>=P.hmin && h<=P.hmax) return COL;
+    // crude nuclei guess: very low value + moderate saturation
+    if(v<0.45 && s>0.35) return NUC;
+    return TIS;
+  }
+  function isArtifactPixel(r,g,b){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v<0.10) return true; // near-black
+    if(s>0.80 && v>0.45 && (h<10 || h>352)) return true; // pure-red navigator
+    return false;
+  }
+
+  // ---------- masks & morphology ----------
+  function ccLabel(mask,w,h){
+    const N=w*h;
+    const lab=new Int32Array(N);
+    const sizes=[0]; const bboxes=[null];
+    const stack=new Int32Array(N);
+    let next=1;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i0=y*w+x;
+        if(!mask[i0] || lab[i0]) continue;
+        lab[i0]=next;
+        let size=0, sp=0;
+        stack[sp++]=i0;
+        let bx0=x,by0=y,bx1=x,by1=y;
+        while(sp){
+          const j=stack[--sp];
+          size++;
+          const jx=j%w, jy=(j-jx)/w;
+          if(jx<bx0)bx0=jx; else if(jx>bx1)bx1=jx;
+          if(jy<by0)by0=jy; else if(jy>by1)by1=jy;
+          if(jx>0){const k=j-1; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+          if(jx<w-1){const k=j+1; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+          if(jy>0){const k=j-w; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+          if(jy<h-1){const k=j+w; if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+        }
+        sizes.push(size);
+        bboxes.push({x0:bx0,y0:by0,x1:bx1+1,y1:by1+1});
+        next++;
+      }
+    }
+    return {lab,sizes,bboxes,count:next-1};
+  }
+  function erode(mask,w,h,iter){
+    let cur=mask;
+    for(let it=0;it<iter;it++){
+      const next=new Uint8Array(w*h);
+      for(let y=1;y<h-1;y++){
+        const yw=y*w;
+        for(let x=1;x<w-1;x++){
+          const i=yw+x;
+          if(cur[i] && cur[i-1] && cur[i+1] && cur[i-w] && cur[i+w]) next[i]=1;
+        }
+      }
+      cur=next;
+    }
+    return cur;
+  }
+  function distanceTransform(mask,w,h){
+    const N=w*h, INF=1e9, D=3, DD=4;
+    const d=new Float32Array(N);
+    for(let i=0;i<N;i++) d[i]=mask[i]?0:INF;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i=y*w+x;
+        if(d[i]===0) continue;
+        let best=d[i];
+        if(y>0){
+          const v=d[i-w]+D; if(v<best)best=v;
+          if(x>0){const v2=d[i-w-1]+DD; if(v2<best)best=v2;}
+          if(x<w-1){const v2=d[i-w+1]+DD; if(v2<best)best=v2;}
+        }
+        if(x>0){const v=d[i-1]+D; if(v<best)best=v;}
+        d[i]=best;
+      }
+    }
+    for(let y=h-1;y>=0;y--){
+      for(let x=w-1;x>=0;x--){
+        const i=y*w+x;
+        let best=d[i];
+        if(y<h-1){
+          const v=d[i+w]+D; if(v<best)best=v;
+          if(x>0){const v2=d[i+w-1]+DD; if(v2<best)best=v2;}
+          if(x<w-1){const v2=d[i+w+1]+DD; if(v2<best)best=v2;}
+        }
+        if(x<w-1){const v=d[i+1]+D; if(v<best)best=v;}
+        d[i]=best;
+      }
+    }
+    for(let i=0;i<N;i++) d[i]/=3;
+    return d;
+  }
+
+  // ---------- scale bar detection ----------
+  // Scale bars in trichrome images are thin (1–3 px) horizontal lines of dark-gray on
+  // any background. They may be straddled by the "200μm" text. We search the bottom 30%
+  // for contiguous dark-gray runs of ≥40 px (with tolerance for ≤3 px gaps), confirm with
+  // at least one neighboring row's endpoints also dark, and keep the longest valid run.
+  function detectScaleBar(adata, ascale){
+    const w=adata.width, h=adata.height, d=adata.data;
+    const y0=Math.floor(h*0.70);
+    const DARK=110;     // grayscale threshold (mean RGB)
+    const GAP_TOL=3;    // pixels allowed between dark fragments
+    const MIN_LEN=40;
+    let best=null;
+    // Precompute a per-pixel dark mask for the strip
+    const sh=h-y0, sw=w;
+    const dark=new Uint8Array(sh*sw);
+    for(let y=y0;y<h;y++){
+      const sy=y-y0;
+      for(let x=0;x<w;x++){
+        const p=(y*w+x)*4;
+        const gray=(d[p]+d[p+1]+d[p+2])/3;
+        if(gray<DARK) dark[sy*sw+x]=1;
+      }
+    }
+    for(let sy=0;sy<sh;sy++){
+      let runStart=-1, runLen=0, gap=0;
+      for(let x=0;x<w;x++){
+        if(dark[sy*sw+x]){
+          if(runStart<0)runStart=x;
+          runLen += 1 + gap;
+          gap=0;
+        } else if(runStart>=0){
+          gap++;
+          if(gap>GAP_TOL){
+            tryRun(sy, runStart, runStart+runLen-1, runLen);
+            runStart=-1; runLen=0; gap=0;
+          }
+        }
+      }
+      if(runStart>=0) tryRun(sy, runStart, runStart+runLen-1, runLen);
+    }
+    function tryRun(sy, x0, x1, len){
+      if(len<MIN_LEN) return;
+      if(best && len<=best.len) return;
+      // Confirm: at least one of the ±2 neighbor rows has dark pixels near both endpoints
+      let ok=false;
+      for(let dy of [-2,-1,1,2]){
+        const ny=sy+dy;
+        if(ny<0||ny>=sh) continue;
+        // Allow endpoints to be ±4 px off
+        let leftOk=false, rightOk=false;
+        for(let dx=-4;dx<=4;dx++){
+          if(x0+dx>=0 && x0+dx<w && dark[ny*sw+(x0+dx)]) leftOk=true;
+          if(x1+dx>=0 && x1+dx<w && dark[ny*sw+(x1+dx)]) rightOk=true;
+          if(leftOk&&rightOk) break;
+        }
+        if(leftOk&&rightOk){ ok=true; break; }
+      }
+      if(!ok) return;
+      best={y:y0+sy, x0, x1, len};
+    }
+    if(!best) return null;
+    const fullLen = best.len * ascale;
+    return {analysis: best, fullLen, umAssumed:200, umPerPx: 200/fullLen};
+  }
+
+  // ---------- vessel & off-slide detection ----------
+  // Off-slide = a "clean white" border-touching region that is NOT the alveolar network.
+  // We require: (a) the component touches the image border, (b) its bounding box is filled
+  // ≥80% by the component itself (so a sparse alveolar network — which has septa scattered
+  // through it — does NOT qualify), and (c) it covers ≥8% of total image area.
+  function detectOffSlide(airMask, w, h){
+    const N = w*h;
+    const offMask = new Uint8Array(N);
+    const cc = ccLabel(airMask, w, h);
+    const minSize = N*0.08;
+    for(let lab=1;lab<=cc.count;lab++){
+      const sz=cc.sizes[lab];
+      if(sz<minSize) continue;
+      const b=cc.bboxes[lab];
+      const touchesBorder = (b.x0===0 || b.y0===0 || b.x1===w || b.y1===h);
+      if(!touchesBorder) continue;
+      const bw=b.x1-b.x0, bh=b.y1-b.y0;
+      const solidity = sz / Math.max(1, bw*bh);
+      if(solidity<0.80) continue; // alveolar network is porous → fails this
+      for(let y=b.y0;y<b.y1;y++){
+        for(let x=b.x0;x<b.x1;x++){
+          const i=y*w+x;
+          if(cc.lab[i]===lab) offMask[i]=1;
+        }
+      }
+    }
+    return offMask;
+  }
+  function detectVessels(cls, w, h, airwayMask, offMask){
+    // A vessel is a tissue island whose interior contains either RBC-like pixels (very saturated red)
+    // OR a small enclosed airspace (the lumen). We look at small-to-medium tissue components
+    // surrounded by tissue/collagen with high circularity.
+    const N=w*h;
+    const vMask=new Uint8Array(N);
+    // Build "interior airspace" = airspace pixels that are NOT airway, NOT off-slide
+    const innerAir = new Uint8Array(N);
+    for(let i=0;i<N;i++){
+      if(cls[i]===AIR && !airwayMask[i] && !offMask[i]) innerAir[i]=1;
+    }
+    // Look for small-enclosed air components surrounded by collagen and tissue
+    const cc = ccLabel(innerAir, w, h);
+    const minLumen = 30, maxLumen = N*0.01;
+    for(let lab=1;lab<=cc.count;lab++){
+      const sz=cc.sizes[lab];
+      if(sz<minLumen || sz>maxLumen) continue;
+      const b=cc.bboxes[lab];
+      // Don't grab tiny gaps in alveolar walls
+      const bw=b.x1-b.x0, bh=b.y1-b.y0;
+      const aspect = bw/bh; if(aspect<0.25 || aspect>4) continue;
+      // Estimate circularity from area/bbox
+      const fill = sz/(bw*bh);
+      if(fill<0.45) continue;
+      // Check perimeter ring for collagen presence
+      let perim=0, colN=0;
+      const pad=Math.max(2, Math.round(Math.min(bw,bh)*0.20));
+      const x0=Math.max(0,b.x0-pad), y0=Math.max(0,b.y0-pad),
+            x1=Math.min(w,b.x1+pad), y1=Math.min(h,b.y1+pad);
+      for(let y=y0;y<y1;y++){
+        for(let x=x0;x<x1;x++){
+          const i=y*w+x;
+          // Pixel on the ring: inside the padded bbox but outside the lumen
+          if(cc.lab[i]===lab) continue;
+          perim++;
+          if(cls[i]===COL) colN++;
+        }
+      }
+      const collRatio = perim? colN/perim : 0;
+      if(collRatio<0.06) continue; // not enough collagen around → probably not a vessel
+      // Mark vessel = padded bbox area minus airway/off-slide
+      for(let y=y0;y<y1;y++){
+        for(let x=x0;x<x1;x++){
+          const i=y*w+x;
+          if(airwayMask[i]||offMask[i]) continue;
+          vMask[i]=1;
+        }
+      }
+    }
+    return vMask;
+  }
+
+  // ---------- Ashcroft model ----------
+  // Piecewise-linear mapping: in[0]→0, in[1]→8, clipped to [0,8].
+  function rampScore(x, anchorLo, anchorHi){
+    if(!isFinite(x)) return 0;
+    if(anchorHi<=anchorLo) return 0;
+    const t = (x-anchorLo)/(anchorHi-anchorLo);
+    return Math.max(0, Math.min(8, t*8));
+  }
+  function estimate(m){
+    if(!m) return null;
+    const umPerPx = m.umPerPx || 1; // safe fallback (px treated as μm)
+    const wallUm = m.wallMedian * umPerPx;
+    const wall90Um = m.wallP90 * umPerPx;
+    const wallScore = 0.5*rampScore(wallUm, M.wn, M.wx) + 0.5*rampScore(wall90Um, M.wn*1.5, M.wx*1.5);
+    const massScore = rampScore(m.massFrac, M.mn, M.mx);
+    const airScore  = rampScore(m.tissuePct, M.an, M.ax);
+    const colScore  = rampScore(m.collagenOfTissue, 1, 35);
+    const wTot = M.ww+M.wm+M.wa+M.wc || 1;
+    const cont = (M.ww*wallScore + M.wm*massScore + M.wa*airScore + M.wc*colScore) / wTot;
+    const grade = Math.max(0, Math.min(ASH_MAX, Math.round(cont)));
+    const why = `walls P50 ${wallUm.toFixed(1)}μm · P90 ${wall90Um.toFixed(1)}μm → ${wallScore.toFixed(1)} · ` +
+                `mass ${m.massFrac.toFixed(1)}% → ${massScore.toFixed(1)} · ` +
+                `tissue ${m.tissuePct.toFixed(0)}% → ${airScore.toFixed(1)} · ` +
+                `col ${m.collagenOfTissue.toFixed(0)}%tis → ${colScore.toFixed(1)}`;
+    const feats = {wall:wallScore, mass:massScore, air:airScore, col:colScore};
+    let warning = '';
+    if(m.effectivePct < 20) warning = `  ⚠ only ${m.effectivePct.toFixed(0)}% of ROI analyzed`;
+    if(!m.scaleBarFound) warning += '  ⚠ scale bar not auto-detected; wall μm assumes 1px ≈ 1μm';
+    return {grade, cont, why:why+warning, feats};
+  }
+
+  // ---------- file loading ----------
+  function addFiles(list){
+    [...list].forEach(f=>{
+      const isTiff=/tiff?$/i.test(f.name)||/tiff/i.test(f.type);
+      const rd=new FileReader();
+      rd.onload=e=>{ isTiff?loadTiff(f.name,e.target.result):loadRaster(f.name,e.target.result); };
+      isTiff? rd.readAsArrayBuffer(f):rd.readAsDataURL(f);
+    });
+  }
+  function loadRaster(name,dataURL){
+    const im=new Image();
+    im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+      c.getContext('2d').drawImage(im,0,0);register(name,c);};
+    im.onerror=()=>showErr('Could not read '+name);
+    im.src=dataURL;
+  }
+  function loadTiff(name,buf){
+    if(typeof UTIF==='undefined'){showErr('TIFF decoder not loaded yet — try again in a moment.');return;}
+    try{
+      const ifds=UTIF.decode(buf);UTIF.decodeImage(buf,ifds[0]);
+      const rgba=UTIF.toRGBA8(ifds[0]),w=ifds[0].width,h=ifds[0].height;
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const id=new ImageData(new Uint8ClampedArray(rgba),w,h);c.getContext('2d').putImageData(id,0,0);
+      register(name,c);
+    }catch(err){showErr('Failed to decode TIFF '+name+': '+err.message);}
+  }
+  function showErr(msg){errEl.style.display='';errEl.textContent=msg;console.error(msg);}
+  function clearErr(){errEl.style.display='none';errEl.textContent='';}
+  function showWarn(msg){if(!msg){warnEl.style.display='none';warnEl.textContent='';return;}warnEl.style.display='';warnEl.textContent=msg;}
+
+  function register(name,full){
+    const w=full.width,h=full.height;
+    const scale=Math.max(1,Math.max(w,h)/ANALYSIS_MAX);
+    const aw=Math.round(w/scale),ah=Math.round(h/scale);
+    const ac=document.createElement('canvas');ac.width=aw;ac.height=ah;
+    ac.getContext('2d').drawImage(full,0,0,aw,ah);
+    const adata=ac.getContext('2d').getImageData(0,0,aw,ah);
+    const tc=document.createElement('canvas');tc.width=46;tc.height=34;
+    tc.getContext('2d').drawImage(full,0,0,46,34);
+    const rec={id:'i'+Date.now()+Math.random().toString(36).slice(2,6),name,w,h,full,adata,ascale:scale,
+               roi:null,ash:'',region:'',notes:'',metrics:null,umPerPxOverride:null,thumb:tc.toDataURL()};
+    imgs.push(rec);
+    safeCompute(rec);
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    if(!curId) select(rec.id); else updateNav();
+    renderTable();
+  }
+
+  function safeCompute(rec){
+    try{ compute(rec); clearErr(); }
+    catch(err){ console.error(err); showErr('compute failed: '+err.message); rec.metrics=null; rec.est=null; }
+  }
+
+  function compute(rec){
+    const {adata,ascale}=rec, aw=adata.width, ah=adata.height, d=adata.data;
+    let x0=0,y0=0,x1=aw,y1=ah;
+    if(rec.roi){
+      x0=Math.max(0,Math.floor(rec.roi.x/ascale));
+      y0=Math.max(0,Math.floor(rec.roi.y/ascale));
+      x1=Math.min(aw,Math.ceil((rec.roi.x+rec.roi.w)/ascale));
+      y1=Math.min(ah,Math.ceil((rec.roi.y+rec.roi.h)/ascale));
+    }
+    const rw=Math.max(1,x1-x0), rh=Math.max(1,y1-y0), N=rw*rh;
+    const cls=new Uint8Array(N);
+    const artCandidate=new Uint8Array(N);
+
+    // Pick classifier
+    const stainInv = STAIN_INV[P.stain]?.inv || null;
+    const useDeconv = (P.stain==='trichrome' || P.stain==='he') && stainInv;
+    // Sample 1000 random pixels to detect if deconv channels are basically empty (washed out slide)
+    // — if so, fall back to HSV automatically for this image.
+    let useDeconvHere = useDeconv;
+    if(useDeconv){
+      let cntStrong=0, n=Math.min(1000, N);
+      for(let s=0;s<n;s++){
+        const xi=Math.floor(Math.random()*rw), yi=Math.floor(Math.random()*rh);
+        const ax=xi+x0, ay=yi+y0, p=(ay*aw+ax)*4;
+        const R=d[p],G=d[p+1],B=d[p+2];
+        const [h,sa,v]=rgb2hsv(R,G,B);
+        if(v>=P.whiteV && sa<=P.whiteS) continue;
+        const od=rgbToOD(R,G,B);
+        if(od[0]+od[1]+od[2] > 0.30) cntStrong++;
+      }
+      if(cntStrong < n*0.04) useDeconvHere=false;
+    }
+
+    // Try scale-bar detection on full analysis image (only if no override + no ROI)
+    let scaleBar = null, umPerPx = null, scaleBarFound = false;
+    if(rec.umPerPxOverride){
+      umPerPx = rec.umPerPxOverride;
+    } else {
+      try{ scaleBar = detectScaleBar(adata, ascale); }catch(e){ scaleBar=null; }
+      if(scaleBar){ umPerPx = scaleBar.umPerPx; scaleBarFound = true; }
+      // No bar found → leave umPerPx null (estimate() will warn).
+    }
+    rec.scaleBar = scaleBar;
+    rec.scaleBarFound = scaleBarFound;
+    rec.umPerPx = umPerPx;
+
+    // Pixel classification (and corner-artifact candidates)
+    const cwX=rw*0.20, cwY=rh*0.20;
+    for(let yy=0;yy<rh;yy++){
+      const ay=yy+y0;
+      for(let xx=0;xx<rw;xx++){
+        const ax=xx+x0, p=(ay*aw+ax)*4, li=yy*rw+xx;
+        const R=d[p],G=d[p+1],B=d[p+2];
+        cls[li] = useDeconvHere ? classifyDeconv(R,G,B,stainInv) : classifyHSV(R,G,B);
+        if(P.artMask){
+          const inCornerX = xx<cwX || xx>=rw-cwX;
+          const inCornerY = yy<cwY || yy>=rh-cwY;
+          if(inCornerX && inCornerY && isArtifactPixel(R,G,B)) artCandidate[li]=1;
+        }
+      }
+    }
+
+    const airMask=new Uint8Array(N);
+    for(let i=0;i<N;i++) airMask[i]=(cls[i]===AIR)?1:0;
+
+    // Off-slide detection: huge air component touching border
+    const offMask = P.offExcl ? detectOffSlide(airMask, rw, rh) : new Uint8Array(N);
+
+    // Mark scale bar bbox (and a small padding) as artifact
+    const artifactRects=[];
+    const artifactMask=new Uint8Array(N);
+    if(scaleBar){
+      // Convert scaleBar's analysis coords to ROI-local coords
+      const sb=scaleBar.analysis;
+      // sb is in adata coords, not ROI coords. Convert:
+      const bx0=Math.max(0, sb.x0-x0-8), by0=Math.max(0, sb.y-y0-22),
+            bx1=Math.min(rw, sb.x1-x0+8), by1=Math.min(rh, sb.y-y0+12);
+      if(bx1>bx0 && by1>by0){
+        for(let yy=by0;yy<by1;yy++)for(let xx=bx0;xx<bx1;xx++) artifactMask[yy*rw+xx]=1;
+        artifactRects.push({x0:bx0,y0:by0,x1:bx1,y1:by1, kind:'scalebar'});
+      }
+    }
+    if(P.artMask){
+      const ccArt=ccLabel(artCandidate,rw,rh);
+      const minArt=80;
+      const pad=Math.max(2, Math.round(Math.min(rw,rh)*0.005));
+      for(let lab=1;lab<=ccArt.count;lab++){
+        if(ccArt.sizes[lab] < minArt) continue;
+        const b=ccArt.bboxes[lab];
+        const bw=b.x1-b.x0, bh=b.y1-b.y0;
+        if(bw*bh > N*0.12) continue;
+        const bx0=Math.max(0,b.x0-pad), by0=Math.max(0,b.y0-pad),
+              bx1=Math.min(rw,b.x1+pad), by1=Math.min(rh,b.y1+pad);
+        artifactRects.push({x0:bx0,y0:by0,x1:bx1,y1:by1, kind:'corner'});
+        for(let y=by0;y<by1;y++)for(let x=bx0;x<bx1;x++) artifactMask[y*rw+x]=1;
+      }
+    }
+
+    // Airway detection. Erode aggressively (4 px) so the alveolar network gets fully
+    // disconnected into per-alveolus components — otherwise wide gaps in alveolar septa
+    // keep many alveoli linked into one giant "fake airway" CC. We additionally require
+    // each airway candidate's bbox-fill ratio (solidity) to be ≥ 0.45, which screens out
+    // sprawling alveolar fragments that survive erosion as elongated thread-like CCs.
+    const innerAir=new Uint8Array(N);
+    for(let i=0;i<N;i++) innerAir[i]=(cls[i]===AIR && !offMask[i] && !artifactMask[i])?1:0;
+    const EROSION=4;
+    const eroded = erode(innerAir, rw, rh, EROSION);
+    const ccEroded = ccLabel(eroded, rw, rh);
+    let medianAlv=0, airwayMin=Infinity, airwayMax=Math.round(N*0.10);
+    if(ccEroded.count>0){
+      const sizes=ccEroded.sizes.slice(1).filter(s=>s>=4).sort((a,b)=>a-b);
+      medianAlv = sizes.length ? sizes[Math.floor(sizes.length/2)] : 0;
+      airwayMin = Math.max(120, Math.round(medianAlv * P.awMult));
+    }
+    const coreIsAirway=new Uint8Array(ccEroded.count+1);
+    let airwayCount=0;
+    for(let lab=1;lab<=ccEroded.count;lab++){
+      const sz=ccEroded.sizes[lab];
+      if(sz<airwayMin || sz>airwayMax) continue;
+      const b=ccEroded.bboxes[lab];
+      const solidity = sz / Math.max(1, (b.x1-b.x0)*(b.y1-b.y0));
+      if(solidity<0.45) continue;
+      coreIsAirway[lab]=1; airwayCount++;
+    }
+    const airwayMask=new Uint8Array(N);
+    if(airwayCount>0){
+      const coreMask=new Uint8Array(N);
+      for(let i=0;i<N;i++) if(eroded[i] && coreIsAirway[ccEroded.lab[i]]) coreMask[i]=1;
+      const dtCore=distanceTransform(coreMask,rw,rh);
+      const reach=EROSION+2;
+      for(let i=0;i<N;i++){
+        if(innerAir[i] && dtCore[i]<=reach) airwayMask[i]=1;
+      }
+    }
+
+    // Vessel detection
+    const vesselMask = P.vessExcl ? detectVessels(cls, rw, rh, airwayMask, offMask) : new Uint8Array(N);
+
+    // Peri-airway buffer
+    const periMask=new Uint8Array(N);
+    if(P.periBuf>0 && airwayCount>0){
+      const dtAirway=distanceTransform(airwayMask,rw,rh);
+      for(let i=0;i<N;i++){
+        if(!airwayMask[i] && dtAirway[i] <= P.periBuf) periMask[i]=1;
+      }
+    }
+
+    // Smaller-than-airway airspace (true alveolar) — used for wall thickness
+    const smallAirMask=new Uint8Array(N);
+    let smallAirAny=false;
+    for(let i=0;i<N;i++){
+      if(cls[i]===AIR && !airwayMask[i] && !offMask[i] && !vesselMask[i]){
+        smallAirMask[i]=1; smallAirAny=true;
+      }
+    }
+
+    // Effective analysis region
+    const effMask=new Uint8Array(N);
+    for(let i=0;i<N;i++){
+      if(airwayMask[i] || periMask[i] || artifactMask[i] || offMask[i] || vesselMask[i]) continue;
+      effMask[i]=1;
+    }
+    let fallback='';
+    let initEff=0; for(let i=0;i<N;i++) if(effMask[i]) initEff++;
+    if(N>0 && initEff/N < 0.30){
+      let cur=0;
+      for(let i=0;i<N;i++){ effMask[i]=(airwayMask[i]||periMask[i]||offMask[i])?0:1; if(effMask[i])cur++; }
+      fallback='auto-artifact + vessel mask dropped (would have excluded >70% of ROI)';
+      if(cur/N < 0.30){
+        cur=0;
+        for(let i=0;i<N;i++){ effMask[i]=(airwayMask[i]||offMask[i])?0:1; if(effMask[i])cur++; }
+        fallback='peri-airway + vessel + artifact dropped (exclusions exceeded 70% of ROI)';
+        if(cur/N < 0.05){
+          for(let i=0;i<N;i++) effMask[i]=1;
+          fallback='all exclusions dropped (excluded >95% of ROI)';
+        }
+      }
+    }
+
+    // Counts
+    let eff=0, eAir=0, eTis=0, eCol=0, eNuc=0;
+    for(let i=0;i<N;i++){
+      if(!effMask[i]) continue;
+      eff++;
+      const c=cls[i];
+      if(c===AIR) eAir++;
+      else if(c===COL) eCol++;
+      else if(c===NUC) eNuc++;
+      else eTis++;
+    }
+    const eTissue = eTis + eCol + eNuc;
+
+    // Wall thickness: at each tissue pixel in effMask, distance to nearest alveolar airspace.
+    let wallMean=0, wallMedian=0, wallP75=0, wallP90=0, massCount=0;
+    if(eTissue>0 && smallAirAny){
+      const dtAir=distanceTransform(smallAirMask,rw,rh);
+      const histMax=100;
+      const hist=new Int32Array(histMax+1);
+      let sum=0, n=0;
+      for(let i=0;i<N;i++){
+        if(!effMask[i] || cls[i]===AIR) continue;
+        const dist=Math.min(histMax, dtAir[i]);
+        sum+=dist; n++;
+        hist[Math.round(dist)]++;
+        if(dist > P.massDist) massCount++;
+      }
+      wallMean = n ? sum/n : 0;
+      let cum=0;
+      const targetMedian=n*0.5, target75=n*0.75, target90=n*0.90;
+      for(let b=0;b<=histMax;b++){
+        cum+=hist[b];
+        if(!wallMedian && cum>=targetMedian) wallMedian=b;
+        if(!wallP75 && cum>=target75) wallP75=b;
+        if(!wallP90 && cum>=target90){wallP90=b; break;}
+      }
+    } else if(eTissue>0){
+      // No alveolar space → fully consolidated. Cap walls at histMax.
+      massCount = eTissue; wallMean = 100; wallMedian = 100; wallP75 = 100; wallP90 = 100;
+    }
+
+    rec.metrics={
+      total:N, effective:eff,
+      effectivePct: N? 100*eff/N : 0,
+      airwayCount,
+      airwayPx: countMask(airwayMask),
+      vesselPx: countMask(vesselMask),
+      periPx: countMask(periMask),
+      offSlidePx: countMask(offMask),
+      artifactPx: countMask(artifactMask),
+      airspacePct: eff? 100*eAir/eff : 0,
+      tissuePct:   eff? 100*eTissue/eff : 0,
+      collagenOfTissue: eTissue? 100*eCol/eTissue : 0,
+      collagenOfEff:   eff? 100*eCol/eff : 0,
+      nucleiOfTissue:  eTissue? 100*eNuc/eTissue : 0,
+      massFrac: eff? 100*massCount/eff : 0,
+      wallMean, wallMedian, wallP75, wallP90, massCount, medianAlveolus: medianAlv,
+      rw, rh, x0, y0, ascale,
+      cls, airwayMask, vesselMask, periMask, artifactMask, offMask, effMask, artifactRects,
+      fallback, useDeconvHere, umPerPx, scaleBarFound
+    };
+    rec.est = estimate(rec.metrics);
+  }
+  function countMask(m){let c=0;for(let i=0;i<m.length;i++)if(m[i])c++;return c;}
+  function reEstimateAll(){imgs.forEach(r=>{if(r.metrics){r.metrics.umPerPx=r.umPerPx; r.est=estimate(r.metrics);}});}
+
+  function renderStrip(){
+    stripEl.innerHTML='';
+    imgs.forEach((r)=>{
+      const div=document.createElement('div');div.className='thumb'+(r.id===curId?' active':'');
+      const refV = refLookup(r.name);
+      const estChip = (!blind && r.est) ? '~'+r.est.grade : '';
+      const labChip = r.ash!=='' ? `<b style="color:var(--ink)"> /${r.ash}</b>` : '';
+      const refChip = (!blind && refV!=null) ? `<span class="truth">ref ${refV.toFixed(2)}</span>` : '';
+      div.innerHTML=`<img src="${r.thumb}">
+        <div><div class="nm">${esc(r.name)}</div><div class="mini">${r.w}×${r.h}${r.roi?' · ROI':''}${r.umPerPx?' · '+r.umPerPx.toFixed(2)+'μm/px':''}</div></div>
+        <span class="sc">${estChip}${labChip}${refChip}</span>
+        <button class="rm" title="remove">×</button>`;
+      div.onclick=e=>{if(e.target.classList.contains('rm'))remove(r.id);else select(r.id);};
+      stripEl.appendChild(div);
+    });
+    updateNav();
+  }
+  function select(id){
+    curId=id; if(activeSheet) activeSheet.curId=id;
+    const r=cur();
+    fnameEl.textContent=r?r.name:'—';
+    ashEl.value=r?r.ash:''; regionEl.value=r?r.region:''; notesEl.value=r?r.notes:'';
+    const tchip = $('truthchip');
+    const ref = r ? refLookup(r.name) : null;
+    if(ref!=null){
+      tchip.style.display='inline-block';
+      tchip.textContent=`reference ${ref.toFixed(2)}`;
+    } else { tchip.style.display='none'; }
+    $('scaleOverride').value = (r && r.umPerPxOverride) ? r.umPerPxOverride.toFixed(3) : '';
+    const sa=$('scaleAutoLbl');
+    if(r && r.metrics){
+      if(r.umPerPxOverride){
+        sa.innerHTML=`override <b>${r.umPerPxOverride.toFixed(3)}</b> μm/px`;
+        sa.style.color='var(--warn)';
+      } else if(r.scaleBarFound){
+        sa.innerHTML=`auto-detected: bar ${r.scaleBar.fullLen.toFixed(0)} px → <b>${r.umPerPx.toFixed(3)}</b> μm/px (assumes 200 μm)`;
+        sa.style.color='var(--good)';
+      } else {
+        sa.innerHTML=`no bar found — metrics shown in <b>px</b>; enter μm/px to convert`;
+        sa.style.color='var(--bad)';
+      }
+    } else { sa.textContent='—'; sa.style.color='var(--muted)'; }
+    if(r&&r.roi)roitxtEl.textContent=`${r.roi.w}×${r.roi.h} px at (${r.roi.x}, ${r.roi.y})`; else roitxtEl.textContent='full image';
+    renderStrip();drawView();renderMetrics();renderTableActive();updateNav();
+  }
+  function cur(){return imgs.find(x=>x.id===curId)||null;}
+
+  function drawView(){
+    const r=cur();
+    if(!r){emptyEl.style.display='';viewEl.style.display='none';roihintEl.style.display='none';$('scaletag').classList.remove('found');return;}
+    emptyEl.style.display='none';viewEl.style.display='';roihintEl.style.display='';
+    const maxW=areaEl.clientWidth||700;
+    const maxH=Math.max(360, (window.innerHeight||800)*0.82);
+    let dispW=Math.min(r.w, maxW);
+    let dispH=r.h*(dispW/r.w);
+    if(dispH>maxH){ dispH=maxH; dispW=r.w*(dispH/r.h); }
+    dispW=Math.round(dispW); dispH=Math.round(dispH);
+    const dispScale=dispW/r.w;
+    viewEl.width=dispW;viewEl.height=dispH;viewEl._dispScale=dispScale;
+    vctx.drawImage(r.full,0,0,dispW,dispH);
+    if(viewMode==='overlay') drawOverlay(r,dispScale);
+    else if(viewMode==='collagen') drawChannel(r,dispScale,'collagen');
+    else if(viewMode==='walls') drawWalls(r,dispScale);
+    if(r.scaleBar){
+      const sb=r.scaleBar.analysis;
+      const sx=(sb.x0*r.ascale)*dispScale, sxe=((sb.x1+1)*r.ascale)*dispScale, sy=(sb.y*r.ascale)*dispScale;
+      vctx.save();vctx.strokeStyle='#7dd3c0';vctx.lineWidth=2;
+      vctx.strokeRect(sx-3, sy-22, (sxe-sx)+6, 26);
+      vctx.restore();
+    }
+    if(r.roi){
+      vctx.save();vctx.strokeStyle='#146b7e';vctx.lineWidth=2;vctx.setLineDash([6,4]);
+      vctx.strokeRect(r.roi.x*dispScale,r.roi.y*dispScale,r.roi.w*dispScale,r.roi.h*dispScale);
+      vctx.fillStyle='rgba(34,38,43,.32)';
+      vctx.fillRect(0,0,dispW,r.roi.y*dispScale);
+      vctx.fillRect(0,(r.roi.y+r.roi.h)*dispScale,dispW,dispH);
+      vctx.fillRect(0,r.roi.y*dispScale,r.roi.x*dispScale,r.roi.h*dispScale);
+      vctx.fillRect((r.roi.x+r.roi.w)*dispScale,r.roi.y*dispScale,dispW,r.roi.h*dispScale);
+      vctx.restore();
+    }
+    const tag=$('scaletag');
+    if(r.scaleBarFound){tag.textContent=`scale ${r.umPerPx.toFixed(3)} μm/px (200 μm bar)`;tag.classList.add('found');}
+    else if(r.umPerPxOverride){tag.textContent=`scale ${r.umPerPxOverride.toFixed(3)} μm/px (override)`;tag.classList.add('found');}
+    else tag.classList.remove('found');
+  }
+
+  function drawOverlay(r,dispScale){
+    const m=r.metrics;if(!m)return;
+    const oc=document.createElement('canvas');oc.width=m.rw;oc.height=m.rh;
+    const octx=oc.getContext('2d');const od=octx.createImageData(m.rw,m.rh);
+    const cls=m.cls, aw=m.airwayMask, ve=m.vesselMask, pe=m.periMask, ar=m.artifactMask, of=m.offMask;
+    for(let i=0;i<cls.length;i++){
+      const o=i*4; let R,G,B,A=220;
+      const c=cls[i];
+      if(c===AIR){R=239;G=236;B=228;A=110;}
+      else if(c===COL){R=31;G=122;B=156;}
+      else if(c===NUC){R=106;G=77;B=138;}
+      else{R=194;G=91;B=134;}
+      if(showExcl){
+        if(of[i]){R=207;G=202;B=187;A=215;}
+        else if(aw[i]){R=74;G=74;B=82;A=220;}
+        else if(ve[i]){R=138;G=58;B=58;A=215;}
+        else if(pe[i]){R=Math.round(R*0.4+214*0.6); G=Math.round(G*0.4+185*0.6); B=Math.round(B*0.4+72*0.6); A=215;}
+        else if(ar[i]){R=Math.round(R*0.35+160*0.65); G=Math.round(G*0.35+73*0.65); B=Math.round(B*0.35+160*0.65); A=215;}
+      }
+      od.data[o]=R;od.data[o+1]=G;od.data[o+2]=B;od.data[o+3]=A;
+    }
+    octx.putImageData(od,0,0);
+    vctx.save();vctx.imageSmoothingEnabled=false;vctx.globalAlpha=0.92;
+    const sx=(m.x0*r.ascale)*dispScale, sy=(m.y0*r.ascale)*dispScale;
+    vctx.drawImage(oc,sx,sy,m.rw*r.ascale*dispScale,m.rh*r.ascale*dispScale);
+    vctx.restore();
+  }
+  function drawChannel(r,dispScale,ch){
+    const m=r.metrics;if(!m)return;
+    // Show the deconv collagen channel as a heat overlay.
+    const aw=r.adata.width;
+    const oc=document.createElement('canvas');oc.width=m.rw;oc.height=m.rh;
+    const octx=oc.getContext('2d');const od=octx.createImageData(m.rw,m.rh);
+    const stainInv = STAIN_INV[P.stain]?.inv;
+    if(!stainInv){drawOverlay(r,dispScale);return;}
+    const d=r.adata.data;
+    for(let yy=0;yy<m.rh;yy++){
+      const ay=yy+m.y0;
+      for(let xx=0;xx<m.rw;xx++){
+        const ax=xx+m.x0, p=(ay*aw+ax)*4, li=yy*m.rw+xx;
+        const [c1,c2,c3]=deconvPixel(d[p],d[p+1],d[p+2], stainInv);
+        const t = Math.min(1, c1/0.7);
+        const o=li*4;
+        od.data[o]=Math.round(31*t); od.data[o+1]=Math.round(122*t); od.data[o+2]=Math.round(180*t);
+        od.data[o+3] = Math.round(255*Math.min(1, c1/0.5));
+      }
+    }
+    octx.putImageData(od,0,0);
+    vctx.save();vctx.imageSmoothingEnabled=false;vctx.globalAlpha=0.85;
+    const sx=(m.x0*r.ascale)*dispScale, sy=(m.y0*r.ascale)*dispScale;
+    vctx.drawImage(oc,sx,sy,m.rw*r.ascale*dispScale,m.rh*r.ascale*dispScale);
+    vctx.restore();
+  }
+  function drawWalls(r,dispScale){
+    const m=r.metrics;if(!m)return;
+    // Reconstruct wall distance map from smallAirMask only over effective tissue pixels
+    const N=m.rw*m.rh;
+    const sa=new Uint8Array(N);
+    for(let i=0;i<N;i++){
+      if(m.cls[i]===AIR && !m.airwayMask[i] && !m.offMask[i] && !m.vesselMask[i]) sa[i]=1;
+    }
+    const dt = distanceTransform(sa,m.rw,m.rh);
+    const oc=document.createElement('canvas');oc.width=m.rw;oc.height=m.rh;
+    const octx=oc.getContext('2d');const od=octx.createImageData(m.rw,m.rh);
+    const maxD = 20;
+    for(let i=0;i<N;i++){
+      const o=i*4;
+      if(!m.effMask[i] || m.cls[i]===AIR){
+        od.data[o]=255;od.data[o+1]=255;od.data[o+2]=255;od.data[o+3]=0;
+        continue;
+      }
+      const t = Math.min(1, dt[i]/maxD);
+      // viridis-ish: low=teal, high=warm
+      const R = Math.round(60 + 195*t);
+      const G = Math.round(140 - 70*t);
+      const B = Math.round(155 - 130*t);
+      od.data[o]=R;od.data[o+1]=G;od.data[o+2]=B;od.data[o+3]=235;
+    }
+    octx.putImageData(od,0,0);
+    vctx.save();vctx.imageSmoothingEnabled=false;vctx.globalAlpha=0.85;
+    const sx=(m.x0*r.ascale)*dispScale, sy=(m.y0*r.ascale)*dispScale;
+    vctx.drawImage(oc,sx,sy,m.rw*r.ascale*dispScale,m.rh*r.ascale*dispScale);
+    vctx.restore();
+  }
+
+  function renderMetrics(){
+    const r=cur(),m=r&&r.metrics;
+    const useBtn=$('useest');
+    if(!m){
+      ['m_wt','m_wt90','m_mass','m_tis','m_air','m_col','m_eff'].forEach(i=>$(i).textContent='—');
+      $('pxnote').textContent='—';
+      $('compbar').innerHTML='<i style="background:var(--air);width:100%"></i>';
+      $('estgrade').textContent='—';$('estcont').textContent='';
+      $('estwhy').textContent=r?'metrics not computed':'add an image to estimate';
+      $('featbars').innerHTML='';
+      useBtn.disabled=true;showWarn('');return;
+    }
+    const um = m.umPerPx;
+    const fmtLen = (px)=>um? `${(px*um).toFixed(1)} <small>μm</small>` : `${px.toFixed(1)} <small>px</small>`;
+    $('m_wt').innerHTML  = fmtLen(m.wallMedian);
+    $('m_wt90').innerHTML= fmtLen(m.wallP90);
+    $('m_mass').textContent=m.massFrac.toFixed(1)+'%';
+    $('m_tis').textContent=m.tissuePct.toFixed(1)+'%';
+    $('m_air').textContent=m.airspacePct.toFixed(1)+'%';
+    $('m_col').textContent=m.collagenOfTissue.toFixed(1)+'%';
+    $('m_eff').textContent=m.effectivePct.toFixed(1)+'%';
+
+    const e=r.est||estimate(m);
+    $('estgrade').textContent=e?e.grade:'—';
+    $('estcont').textContent=e?`(continuous ${e.cont.toFixed(2)})`:'';
+    $('estwhy').textContent=e?e.why:'';
+    useBtn.disabled=!e;
+
+    // Feature bars
+    if(e && e.feats){
+      const bars=[
+        ['wall',     e.feats.wall, 'wall thickness'],
+        ['mass',     e.feats.mass, 'fibrotic mass'],
+        ['airspace', e.feats.air,  'airspace loss'],
+        ['collagen', e.feats.col,  'collagen density']
+      ];
+      $('featbars').innerHTML = bars.map(([k,v,lab])=>`
+        <div class="featbar"><div class="lab">${lab}</div>
+          <div class="track"><i style="width:${Math.min(100,v/8*100)}%"></i></div>
+          <div class="v">${v.toFixed(1)}</div></div>`).join('');
+    } else $('featbars').innerHTML='';
+
+    showWarn(m.fallback ? ('safety fallback: '+m.fallback) : '');
+
+    const air=m.airspacePct, colp=m.collagenOfEff, tisp=Math.max(0,100-air-colp);
+    $('compbar').innerHTML=`<i style="background:var(--air);width:${air}%"></i><i style="background:var(--tissue);width:${tisp}%"></i><i style="background:var(--collagen);width:${colp}%"></i>`;
+
+    const exclTot=m.airwayPx+m.vesselPx+m.periPx+m.artifactPx+m.offSlidePx;
+    const umNote = um? `1 px = ${um.toFixed(3)} μm` : 'no scale calibration';
+    $('pxnote').textContent=`${m.effective.toLocaleString()} px analyzed (${m.effectivePct.toFixed(1)}% of ROI; excluded ${m.airwayCount} airway${m.airwayCount===1?'':'s'} ${m.airwayPx.toLocaleString()} px + vessels ${m.vesselPx.toLocaleString()} px + peri ${m.periPx.toLocaleString()} px + off-slide ${m.offSlidePx.toLocaleString()} px + artifact ${m.artifactPx.toLocaleString()} px). Stain: ${m.useDeconvHere?P.stain+' deconv':'HSV fallback'}. ${umNote}. Analysis 1:${r.ascale.toFixed(2)} of ${r.w}×${r.h}.`;
+  }
+
+  function renderTable(){
+    if(!imgs.length){
+      tbodyEl.innerHTML='<tr><td colspan="13" class="l" style="color:var(--faint)">No images in this sheet yet.</td></tr>';
+      renderCorr();renderSheetSummary();return;
+    }
+    tbodyEl.innerHTML='';
+    imgs.forEach((r,i)=>{
+      const m=r.metrics;const tr=document.createElement('tr');if(r.id===curId)tr.className='active';
+      const lab=esc(r.name)+(r.region?` · ${esc(r.region)}`:'');
+      const est=r.est?r.est.grade:null;
+      const mismatch=(!blind && est!=null && r.ash!=='' && Math.abs(est-(+r.ash))>=2);
+      const refV = refLookup(r.name);
+      const refDelta = (!blind && refV!=null && est!=null) ? (est-refV) : null;
+      const refDeltaClass = refDelta==null ? '' : (Math.abs(refDelta)<=0.5? 'delta-ok' : Math.abs(refDelta)<=1.0?'delta-warn':'delta-bad');
+      const um = m && m.umPerPx;
+      const wallUm = (m && um) ? (m.wallMedian*um).toFixed(1) : (m? m.wallMedian.toFixed(1)+'px' : '–');
+      const wall90Um = (m && um) ? (m.wallP90*um).toFixed(1) : (m? m.wallP90.toFixed(1)+'px' : '–');
+      const estCell = blind
+        ? '<td class="mono est-col" style="color:var(--faint)">·</td>'
+        : `<td class="mono est-col" style="color:var(--accent)">${est!=null?est:'–'}</td>`;
+      const refCell = blind
+        ? '<td class="mono ref-col" style="color:var(--faint)">·</td>'
+        : `<td class="mono ref-col ${refDeltaClass}">${refV!=null?refV.toFixed(2):'–'}</td>`;
+      tr.innerHTML=`<td class="l">${i+1}</td><td class="l">${lab}</td>
+        ${estCell}
+        <td class="mono"${mismatch?' style="color:var(--tissue);font-weight:600"':''}>${r.ash!==''?r.ash:'–'}</td>
+        ${refCell}
+        <td class="mono">${wallUm}</td>
+        <td class="mono">${wall90Um}</td>
+        <td class="mono">${m?m.massFrac.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.tissuePct.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.airspacePct.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.collagenOfTissue.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.effectivePct.toFixed(0):'–'}</td>
+        <td><button class="rm" style="border:none;background:none;color:var(--faint);cursor:pointer">×</button></td>`;
+      tr.onclick=e=>{if(e.target.classList.contains('rm'))remove(r.id);else select(r.id);};
+      tbodyEl.appendChild(tr);
+    });
+    renderCorr();renderSheetSummary();renderValidation();
+  }
+  function renderTableActive(){[...tbodyEl.children].forEach((tr,i)=>{tr.className=(imgs[i]&&imgs[i].id===curId)?'active':'';});}
+
+  function renderSheetSummary(){
+    const el=$('sheetSummary'); if(blind){el.innerHTML='';return;}
+    if(!imgs.length){el.innerHTML='';return;}
+    const ests = imgs.filter(r=>r.est).map(r=>r.est.cont);
+    const labs = imgs.filter(r=>r.ash!=='').map(r=>+r.ash);
+    const mean = arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null;
+    const m_e = mean(ests), m_l = mean(labs);
+    el.innerHTML = (m_e!=null?`<span class="pill">mouse mean (est.)<b>${m_e.toFixed(2)}</b></span>`:'')
+      + (m_l!=null?`<span class="pill">mouse mean (lab)<b>${m_l.toFixed(2)}</b></span>`:'')
+      + `<span class="pill">fields<b>${imgs.length}</b></span>`
+      + (labs.length?`<span class="pill">scored<b>${labs.length}</b></span>`:'');
+  }
+  function renderValidation(){
+    const panel=$('validationPanel');
+    if(blind){panel.style.display='none';return;}
+    const scored = imgs.filter(r=>r.est && refLookup(r.name)!=null);
+    if(scored.length===0){panel.style.display='none';return;}
+    panel.style.display='';
+    $('validationSource').textContent = refSourceLabel;
+    const conts = scored.map(r=>r.est.cont);
+    const refs  = scored.map(r=>refLookup(r.name));
+    const diffs = scored.map((r,i)=>Math.abs(r.est.grade-refs[i]));
+    const contDiffs = scored.map((r,i)=>Math.abs(r.est.cont-refs[i]));
+    const mae = contDiffs.reduce((a,b)=>a+b,0)/contDiffs.length;
+    const rmse = Math.sqrt(contDiffs.reduce((a,b)=>a+b*b,0)/contDiffs.length);
+    const within1 = 100*diffs.filter(d=>d<=1).length/diffs.length;
+    const exact   = 100*diffs.filter(d=>d<=0.5).length/diffs.length;
+    const r = pearson(conts, refs);
+    const cls = (v, good, warn)=>v<=good?'good':v<=warn?'warn':'bad';
+    const vstats=$('vstats');
+    vstats.innerHTML = `
+      <div class="vstat"><div class="lab">MAE</div><div class="val ${cls(mae,0.5,1.0)}">${mae.toFixed(2)}</div><div class="sub">continuous, |est−ref|</div></div>
+      <div class="vstat"><div class="lab">RMSE</div><div class="val ${cls(rmse,0.7,1.2)}">${rmse.toFixed(2)}</div><div class="sub">continuous</div></div>
+      <div class="vstat"><div class="lab">within ±0.5</div><div class="val ${cls(100-exact,30,55)}">${exact.toFixed(0)}%</div><div class="sub">rounded grade vs ref</div></div>
+      <div class="vstat"><div class="lab">within ±1</div><div class="val ${cls(100-within1,15,30)}">${within1.toFixed(0)}%</div><div class="sub">rounded grade vs ref</div></div>
+      <div class="vstat"><div class="lab">Pearson r</div><div class="val ${cls(1-(r||0),0.4,0.7)}">${r!=null?r.toFixed(2):'–'}</div><div class="sub">continuous</div></div>
+      <div class="vstat"><div class="lab">paired</div><div class="val">${scored.length}</div><div class="sub">of ${imgs.length} loaded</div></div>
+    `;
+    const refRange = `[${Math.min(...refs).toFixed(2)}, ${Math.max(...refs).toFixed(2)}]`;
+    $('vnote').textContent = `Reference range ${refRange} · mean ${(refs.reduce((a,b)=>a+b,0)/refs.length).toFixed(2)}. Continuous MAE compares est.cont to ref; "within" stats compare est.grade (rounded 0–8) to ref. Tweak the estimator sliders to watch MAE move.`;
+  }
+
+  function pearson(xs,ys){
+    const n=xs.length;if(n<3)return null;
+    const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;
+    let sxy=0,sx=0,sy=0;for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sx+=dx*dx;sy+=dy*dy;}
+    if(sx===0||sy===0)return null;return sxy/Math.sqrt(sx*sy);
+  }
+  function renderCorr(){
+    if(blind){ corrEl.innerHTML=''; const svg=$('scatter'); svg.style.display='none'; svg.setAttribute('height',0); return; }
+    const scored=imgs.filter(r=>r.ash!==''&&r.metrics);
+    const ax=scored.map(r=>+r.ash);
+    const rw=pearson(ax,scored.map(r=>r.metrics.wallMedian));
+    const rm=pearson(ax,scored.map(r=>r.metrics.massFrac));
+    const paired=scored.filter(r=>r.est);
+    let agree='';
+    if(paired.length){
+      const diffs=paired.map(r=>Math.abs(r.est.grade-(+r.ash)));
+      const mad=diffs.reduce((a,b)=>a+b,0)/diffs.length;
+      const within1=100*diffs.filter(d=>d<=1).length/diffs.length;
+      const exact=100*diffs.filter(d=>d===0).length/diffs.length;
+      agree=`<span class="stat">est vs lab: mean Δ <b>${mad.toFixed(1)}</b> · exact <b>${exact.toFixed(0)}%</b> · ±1 <b>${within1.toFixed(0)}%</b></span>`;
+    }
+    corrEl.innerHTML=`<span class="stat">scored fields: <b>${scored.length}</b></span>`+
+      (rw!=null?`<span class="stat">lab vs wall: r = <b>${rw.toFixed(2)}</b></span>`:'')+
+      (rm!=null?`<span class="stat">lab vs mass %: r = <b>${rm.toFixed(2)}</b></span>`:'')+
+      agree+
+      (scored.length<3?`<span style="color:var(--faint)">score ≥3 fields to see correlation</span>`:'');
+    drawScatter(scored);
+  }
+  function drawScatter(scored){
+    const svg=$('scatter');
+    if(blind || scored.length<3){svg.style.display='none';svg.setAttribute('height',0);return;}
+    const W=svg.clientWidth||600,H=200,pad=34;svg.style.display='';svg.setAttribute('height',H);
+    const xs=scored.map(r=>+r.ash),ys=scored.map(r=>r.metrics.wallMedian);
+    const ymax=Math.max(2,Math.max(...ys)*1.1);
+    const px=v=>pad+(v/ASH_MAX)*(W-pad-10), py=v=>H-pad-(v/ymax)*(H-pad-12);
+    let s=`<rect x="0" y="0" width="${W}" height="${H}" fill="none"/>`;
+    s+=`<line x1="${pad}" y1="${H-pad}" x2="${W-8}" y2="${H-pad}" stroke="#d2ccbd"/>`;
+    s+=`<line x1="${pad}" y1="12" x2="${pad}" y2="${H-pad}" stroke="#d2ccbd"/>`;
+    for(let a=0;a<=ASH_MAX;a+=2)s+=`<text x="${px(a)}" y="${H-pad+14}" font-size="10" fill="#9a9ea5" text-anchor="middle" font-family="monospace">${a}</text>`;
+    s+=`<text x="${(W)/2}" y="${H-6}" font-size="10.5" fill="#6b6f76" text-anchor="middle">Ashcroft grade (lab)</text>`;
+    s+=`<text x="12" y="${H/2}" font-size="10.5" fill="#6b6f76" text-anchor="middle" transform="rotate(-90 12 ${H/2})">wall thickness (px)</text>`;
+    scored.forEach(r=>{s+=`<circle cx="${px(+r.ash)}" cy="${py(r.metrics.wallMedian)}" r="4.5" fill="#1f7a9c" fill-opacity="0.8"/>`;});
+    svg.innerHTML=s;
+  }
+
+  // ---------- mouse interaction (ROI drag) ----------
+  function evtPos(e){const rct=viewEl.getBoundingClientRect();const cx=(e.touches?e.touches[0].clientX:e.clientX)-rct.left;const cy=(e.touches?e.touches[0].clientY:e.clientY)-rct.top;return{x:cx,y:cy};}
+  function startDrag(e){const r=cur();if(!r)return;e.preventDefault();const p=evtPos(e);dragging={sx:p.x,sy:p.y,scale:viewEl._dispScale};}
+  function moveDrag(e){if(!dragging)return;const p=evtPos(e);
+    const x=Math.min(dragging.sx,p.x),y=Math.min(dragging.sy,p.y),w=Math.abs(p.x-dragging.sx),h=Math.abs(p.y-dragging.sy);
+    drawView();vctx.save();vctx.strokeStyle='#146b7e';vctx.lineWidth=2;vctx.setLineDash([6,4]);vctx.strokeRect(x,y,w,h);vctx.restore();}
+  function endDrag(e){if(!dragging)return;const r=cur();const p=evtPos(e);const sc=dragging.scale;
+    const x=Math.min(dragging.sx,p.x)/sc,y=Math.min(dragging.sy,p.y)/sc,w=Math.abs(p.x-dragging.sx)/sc,h=Math.abs(p.y-dragging.sy)/sc;
+    dragging=null;
+    if(w*sc<6||h*sc<6) return;
+    r.roi={x:Math.round(Math.max(0,x)),y:Math.round(Math.max(0,y)),w:Math.round(Math.min(r.w,w)),h:Math.round(Math.min(r.h,h))};
+    roitxtEl.textContent=`${r.roi.w}×${r.roi.h} px at (${r.roi.x}, ${r.roi.y})`;
+    safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();
+  }
+
+  function remove(id){
+    const idx=imgs.findIndex(x=>x.id===id); if(idx>=0) imgs.splice(idx,1);
+    if(curId===id){ curId=imgs.length?imgs[0].id:null; if(activeSheet)activeSheet.curId=curId; }
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    select(curId); renderTable();
+  }
+  function recomputeAll(){imgs.forEach(safeCompute);drawView();renderMetrics();renderTable();renderStrip();}
+
+  // ---------- CSV/JSON reference loader ----------
+  function loadReferenceFile(){
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='.csv,.txt,.json,.tsv';
+    inp.onchange=e=>{
+      const f=e.target.files[0]; if(!f) return;
+      const rd=new FileReader();
+      rd.onload=ev=>{
+        try{
+          const txt=ev.target.result;
+          const t = parseRef(txt);
+          if(!t || Object.keys(t).length===0){alert('Could not parse reference. Expected CSV/TSV: filename,score per line.');return;}
+          refTable=t; refSourceLabel=`Custom reference: ${f.name} (${Object.keys(t).length} files)`;
+          renderTable(); renderStrip(); select(curId);
+        }catch(err){alert('Parse error: '+err.message);}
+      };
+      rd.readAsText(f);
+    };
+    inp.click();
+  }
+  function parseRef(txt){
+    txt=txt.trim();
+    if(txt.startsWith('{')){
+      const o=JSON.parse(txt);
+      const out={};
+      for(const k of Object.keys(o)){
+        const v=parseFloat(o[k]); if(!isNaN(v)) out[k.toLowerCase()]=v;
+      }
+      return out;
+    }
+    const lines=txt.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length && !l.startsWith('#'));
+    if(!lines.length) return null;
+    const out={};
+    // Try to skip header if first line has non-numeric second column
+    let start=0;
+    const first = lines[0].split(/[,\t]/);
+    if(first.length>=2 && isNaN(parseFloat(first[1]))) start=1;
+    for(let i=start;i<lines.length;i++){
+      const parts = lines[i].split(/[,\t]/);
+      if(parts.length<2) continue;
+      const name = parts[0].trim().replace(/^['"]|['"]$/g,'');
+      const v = parseFloat(parts[1]);
+      if(!isNaN(v)) out[name.toLowerCase()]=v;
+    }
+    return out;
+  }
+  function clearReference(){
+    refTable = Object.assign({}, RT81_3_TRUTH);
+    refSourceLabel = RT81_3_SOURCE;
+    renderTable(); renderStrip(); select(curId);
+  }
+
+  // ---------- export ----------
+  const CSV_HDR=['index','sheet','filename','region_label',
+    'ashcroft_estimated','ashcroft_continuous','ashcroft_manual_lab','ashcroft_reference','scored_blinded',
+    'wall_thickness_um_median','wall_thickness_um_p75','wall_thickness_um_p90','wall_thickness_um_mean',
+    'wall_thickness_px_median','wall_thickness_px_p90',
+    'mass_fraction_pct','tissue_pct_of_analyzed','airspace_pct_of_analyzed',
+    'collagen_pct_of_tissue','collagen_pct_of_analyzed','nuclei_pct_of_tissue',
+    'analyzed_pct_of_roi','px_analyzed','px_airway','px_vessel','px_peri_airway','px_artifact','px_off_slide',
+    'airway_count','median_alveolus_px','um_per_px','scale_bar_auto_detected',
+    'stain_model','used_deconv','safety_fallback',
+    'roi_x','roi_y','roi_w','roi_h','image_w','image_h',
+    'thr_whiteV','thr_whiteS','thr_collagen_OD','thr_nuclei_OD','thr_hue_min','thr_hue_max','thr_collagen_minS',
+    'airway_relative_mult','peri_airway_buffer_px','vessel_excl','off_slide_excl','auto_artifact_mask','mass_dist_threshold_px',
+    'model_wall_anchor_lo_um','model_wall_anchor_hi_um','model_mass_anchor_lo','model_mass_anchor_hi',
+    'model_air_anchor_lo','model_air_anchor_hi','weight_wall','weight_mass','weight_air','weight_col',
+    'notes','exported_at'];
+  function csvCell(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+  function fx(v){return (v==null||isNaN(v)||!isFinite(v))?'':(+v).toFixed(2);}
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+  function exportRows(list, sheetName, ts){
+    return list.map((r,i)=>{
+      const m=r.metrics||{};const roi=r.roi||{x:'',y:'',w:'',h:''};
+      const est=r.est?r.est.grade:''; const estC=r.est?r.est.cont:'';
+      const um = m.umPerPx;
+      const wallUm = (um&&m.wallMedian!=null)? (m.wallMedian*um) : '';
+      const wall90Um = (um&&m.wallP90!=null)? (m.wallP90*um) : '';
+      const wall75Um = (um&&m.wallP75!=null)? (m.wallP75*um) : '';
+      const wallMeanUm = (um&&m.wallMean!=null)? (m.wallMean*um) : '';
+      const refV = refLookup(r.name);
+      return [i+1,sheetName,r.name,r.region,est,fx(estC),r.ash,(refV!=null?refV:''), blind?1:0,
+        fx(wallUm),fx(wall75Um),fx(wall90Um),fx(wallMeanUm),
+        fx(m.wallMedian),fx(m.wallP90),
+        fx(m.massFrac),fx(m.tissuePct),fx(m.airspacePct),
+        fx(m.collagenOfTissue),fx(m.collagenOfEff),fx(m.nucleiOfTissue),
+        fx(m.effectivePct),m.effective||'',m.airwayPx||0,m.vesselPx||0,m.periPx||0,m.artifactPx||0,m.offSlidePx||0,
+        m.airwayCount||0,m.medianAlveolus||0,um?um.toFixed(4):'',m.scaleBarFound?1:0,
+        P.stain,m.useDeconvHere?1:0,m.fallback||'',
+        roi.x,roi.y,roi.w,roi.h,r.w,r.h,
+        P.whiteV,P.whiteS,P.colOd,P.nucOd,P.hmin,P.hmax,P.colS,
+        P.awMult,P.periBuf,P.vessExcl?1:0,P.offExcl?1:0,P.artMask?1:0,P.massDist,
+        M.wn,M.wx,M.mn,M.mx,M.an,M.ax,M.ww,M.wm,M.wa,M.wc,
+        r.notes,ts].map(csvCell).join(',');
+    });
+  }
+  function download(rows, tag){
+    const ts=new Date().toISOString();
+    const blob=new Blob([CSV_HDR.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    const safe=tag.replace(/[^A-Za-z0-9._-]+/g,'_').slice(0,40);
+    a.download='trichrome_quant_'+safe+'_'+ts.slice(0,19).replace(/[:T]/g,'-')+'.csv';a.click();
+  }
+  function exportCSV(){
+    if(!imgs.length){alert('No images in this sheet to export.');return;}
+    download(exportRows(imgs, activeSheet.name, new Date().toISOString()), 'sheet_'+activeSheet.name);
+  }
+  function exportAllCSV(){
+    const ts=new Date().toISOString();
+    let rows=[];
+    sheets.forEach(s=>{ rows=rows.concat(exportRows(s.imgs, s.name, ts)); });
+    if(!rows.length){alert('No images in any sheet to export.');return;}
+    download(rows, 'all_sheets');
+  }
+
+  // ---------- bindings ----------
+  fileEl.onchange=e=>{addFiles(e.target.files);fileEl.value='';};
+  ;['dragover','dragenter'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.add('hot');}));
+  ;['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.remove('hot');}));
+  dropEl.addEventListener('drop',e=>{if(e.dataTransfer.files.length)addFiles(e.dataTransfer.files);});
+
+  $('clearAll').onclick=clearAllImages;
+  $('prevBtn').onclick=()=>nav(-1);
+  $('nextBtn').onclick=()=>nav(1);
+  sheetSelEl.onchange=e=>switchSheet(e.target.value);
+  $('newSheet').onclick=newSheet;
+  $('renameSheet').onclick=renameSheet;
+  $('delSheet').onclick=deleteSheet;
+  $('loadRef').onclick=loadReferenceFile;
+  $('clearRef').onclick=clearReference;
+
+  $('viewseg').onclick=e=>{
+    const b=e.target.closest('button'); if(!b||!b.dataset.v)return;
+    viewMode=b.dataset.v;
+    [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x.dataset.v===viewMode));
+    drawView();
+  };
+  $('stainseg').onclick=e=>{
+    const b=e.target.closest('button'); if(!b||!b.dataset.s)return;
+    P.stain=b.dataset.s;
+    [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x.dataset.s===P.stain));
+    recomputeAll();
+  };
+  $('showExcl').onchange=e=>{showExcl=e.target.checked;drawView();};
+  $('roireset').onclick=()=>{const r=cur();if(!r)return;r.roi=null;roitxtEl.textContent='full image';safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();};
+  $('scaleApply').onclick=()=>{
+    const r=cur(); if(!r) return;
+    const v = parseFloat($('scaleOverride').value);
+    if(isNaN(v)||v<=0){alert('Enter μm-per-pixel as a positive number (e.g. 0.73).');return;}
+    r.umPerPxOverride=v; safeCompute(r); drawView(); renderMetrics(); renderTable(); renderStrip();
+  };
+  $('scaleClear').onclick=()=>{
+    const r=cur(); if(!r) return;
+    r.umPerPxOverride=null; $('scaleOverride').value='';
+    safeCompute(r); drawView(); renderMetrics(); renderTable(); renderStrip();
+  };
+  ashEl.onchange=()=>{const r=cur();if(!r)return;r.ash=ashEl.value;renderStrip();renderTable();};
+  regionEl.oninput=()=>{const r=cur();if(r){r.region=regionEl.value;}};
+  regionEl.onblur=()=>renderTable();
+  notesEl.oninput=()=>{const r=cur();if(r)r.notes=notesEl.value;};
+  $('export').onclick=exportCSV;
+  $('exportAll').onclick=exportAllCSV;
+  $('recalcAll').onclick=recomputeAll;
+  $('useest').onclick=()=>{const r=cur();if(!r||!r.est)return;r.ash=String(r.est.grade);ashEl.value=r.ash;renderStrip();renderTable();};
+  $('revealBtn').onclick=()=>setBlind(false);
+  $('rehideBtn').onclick=()=>setBlind(true);
+
+  function setBlind(b){
+    blind=!!b;
+    document.body.classList.toggle('blind', blind);
+    renderTable(); renderStrip(); renderMetrics();
+  }
+
+  function refreshModelLabels(){
+    $('lwn').textContent=M.wn.toFixed(1)+' μm';
+    $('lwx').textContent=M.wx.toFixed(1)+' μm';
+    $('lmn').textContent=M.mn+'%';
+    $('lmx').textContent=M.mx+'%';
+    $('lan').textContent=M.an+'%';
+    $('lax').textContent=M.ax+'%';
+    $('lw_w').textContent=M.ww.toFixed(2);
+    $('lm_w').textContent=M.wm.toFixed(2);
+    $('la_w').textContent=M.wa.toFixed(2);
+    $('lc_w').textContent=M.wc.toFixed(2);
+  }
+  function applyModel(){reEstimateAll();renderMetrics();renderTable();renderStrip();}
+  function bindModel(id, key, label, fmt){
+    $(id).oninput=()=>{ M[key]=parseFloat($(id).value); refreshModelLabels(); applyModel(); };
+  }
+  bindModel('m_wn','wn'); bindModel('m_wx','wx');
+  bindModel('m_mn','mn'); bindModel('m_mx','mx');
+  bindModel('m_an','an'); bindModel('m_ax','ax');
+  bindModel('w_wall','ww'); bindModel('w_mass','wm'); bindModel('w_air','wa'); bindModel('w_col','wc');
+  $('m_reset').onclick=()=>{Object.assign(M,Mdef);
+    $('m_wn').value=M.wn;$('m_wx').value=M.wx;$('m_mn').value=M.mn;$('m_mx').value=M.mx;
+    $('m_an').value=M.an;$('m_ax').value=M.ax;
+    $('w_wall').value=M.ww;$('w_mass').value=M.wm;$('w_air').value=M.wa;$('w_col').value=M.wc;
+    refreshModelLabels();applyModel();};
+
+  function bindSlider(id, key, labId, fmt){
+    const el=$(id);
+    el.oninput=()=>{
+      P[key]=parseFloat(el.value);
+      $(labId).textContent=fmt(el.value);
+      const r=cur();if(r){safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();}
+    };
+  }
+  bindSlider('whiteV','whiteV','lwv',v=>(+v).toFixed(2));
+  bindSlider('whiteS','whiteS','lws',v=>(+v).toFixed(2));
+  bindSlider('colOd','colOd','lcol',v=>(+v).toFixed(2));
+  bindSlider('nucOd','nucOd','lnuc',v=>(+v).toFixed(2));
+  bindSlider('hmin','hmin','lhmin',v=>v+'°');
+  bindSlider('hmax','hmax','lhmax',v=>v+'°');
+  bindSlider('colS','colS','lcs',v=>(+v).toFixed(2));
+  bindSlider('awMult','awMult','lawm',v=>(+v).toFixed(1)+'×');
+  bindSlider('periBuf','periBuf','lpb',v=>v+' px');
+  bindSlider('massDist','massDist','lmd_px',v=>v+' px');
+  $('vessExcl').onchange=e=>{P.vessExcl=e.target.checked;recomputeAll();};
+  $('offExcl').onchange=e=>{P.offExcl=e.target.checked;recomputeAll();};
+  $('artMask').onchange=e=>{P.artMask=e.target.checked;recomputeAll();};
+
+  viewEl.addEventListener('mousedown',startDrag);window.addEventListener('mousemove',moveDrag);window.addEventListener('mouseup',endDrag);
+  viewEl.addEventListener('touchstart',startDrag,{passive:false});viewEl.addEventListener('touchmove',moveDrag,{passive:false});viewEl.addEventListener('touchend',endDrag);
+  window.addEventListener('resize',()=>{drawView();drawScatter(imgs.filter(r=>r.ash!==''&&r.metrics));});
+
+  window.addEventListener('keydown',e=>{
+    const t=document.activeElement, tag=t&&t.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;
+    if(e.key==='ArrowLeft'){nav(-1);e.preventDefault();}
+    else if(e.key==='ArrowRight'){nav(1);e.preventDefault();}
+  });
+
+  window.addEventListener('error',e=>{showErr('uncaught: '+e.message+(e.filename?` @ ${e.filename}:${e.lineno}`:''));});
+
+  // init
+  sheets.push(makeSheet('Sheet 1'));
+  useSheet(sheets[0]);
+  renderSheetSelect(); renderImagesHeader();
+  refreshModelLabels();
+  setBlind(true);
+  updateNav();
+})();
+</script>
+</body>
+</html>
