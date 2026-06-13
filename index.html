@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trichrome Lung Quantifier</title>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
+<script>
+(function(){
+  function load(src){var s=document.createElement('script');s.src=src;s.async=false;document.head.appendChild(s);}
+  window.addEventListener('DOMContentLoaded',function(){
+    if(typeof UTIF==='undefined'){load('https://unpkg.com/utif@3.1.0/UTIF.min.js');}
+    setTimeout(function(){if(typeof UTIF==='undefined'){load('https://cdnjs.cloudflare.com/ajax/libs/UTIF.js/3.1.0/UTIF.min.js');}},150);
+  });
+})();
+</script>
+<style>
+  :root{
+    --paper:#f6f4ef; --panel:#fffdf9; --ink:#22262b; --muted:#6b6f76; --faint:#9a9ea5;
+    --line:#e3ded3; --line2:#d2ccbd;
+    --accent:#146b7e; --collagen:#1f7a9c; --tissue:#c25b86; --nuclei:#6a4d8a; --dense:#b9760f; --air:#efece4;
+    --airway:#4a4a52; --peri:#d6b948; --artifact:#a049a0; --vessel:#8a3a3a; --offslide:#cfcabb;
+    --good:#2f8259; --warn:#c47018; --bad:#a83232;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1680px;margin:0 auto;padding:22px 22px 80px}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:1.5px solid var(--ink);padding-bottom:12px;margin-bottom:6px}
+  header.top h1{font-family:var(--serif);font-weight:600;font-size:25px;margin:0;letter-spacing:.2px}
+  header.top .sub{color:var(--muted);font-size:12.5px;letter-spacing:.04em}
+  .lede{color:var(--muted);font-size:13px;margin:10px 0 14px;max-width:880px}
+  .small-caps{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .grid{display:grid;grid-template-columns:200px minmax(0,1fr) 312px;gap:16px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+  .panel h2{font-family:var(--serif);font-size:15px;margin:0 0 10px;font-weight:600}
+  .drop{border:1.5px dashed var(--line2);border-radius:7px;padding:14px 12px;text-align:center;cursor:pointer;transition:.15s;background:#fff}
+  .drop:hover,.drop.hot{border-color:var(--accent);background:#f0f6f7}
+  .drop .big{font-size:13px;font-weight:600}
+  .drop .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+  input[type=file]{display:none}
+  .imgs-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .imgs-sub{font-size:11px;color:var(--muted);margin:7px 0 9px;font-family:var(--mono);line-height:1.3;word-break:break-word}
+  .imgs-sub b{color:var(--accent);font-weight:600}
+  .strip{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:64vh;overflow:auto}
+  .thumb{display:flex;gap:9px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:#fff;position:relative}
+  .thumb.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .thumb img{width:46px;height:34px;object-fit:cover;border-radius:3px;background:#eee;flex:none}
+  .thumb .nm{font-size:11.5px;line-height:1.25;word-break:break-all}
+  .thumb .mini{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .thumb .sc{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--accent);flex:none;text-align:right}
+  .thumb .rm{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1}
+  .thumb .rm:hover{color:var(--tissue)}
+  .stage-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .toggles{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .navgrp{display:inline-flex;align-items:center;gap:4px;margin-left:4px}
+  .navbtn{border:1px solid var(--line2);background:#fff;border-radius:6px;width:32px;height:30px;font-size:19px;line-height:1;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0}
+  .navbtn:hover:not(:disabled){background:#f0f6f7;border-color:var(--accent)}
+  .navbtn:disabled{opacity:.4;cursor:not-allowed}
+  .navcount{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:54px;text-align:center}
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:6px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
+  .seg button.on{background:var(--ink);color:#fff}
+  .canvas-area{position:relative;background:#fbfaf6;border:1px solid var(--line);border-radius:7px;overflow:hidden;min-height:420px;display:flex;align-items:center;justify-content:center}
+  #view{display:block;max-width:100%;cursor:crosshair;touch-action:none}
+  .roihint{position:absolute;top:8px;left:10px;background:rgba(34,38,43,.78);color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;pointer-events:none}
+  .scaletag{position:absolute;top:8px;right:10px;background:rgba(20,107,126,.86);color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;font-family:var(--mono);pointer-events:none;display:none}
+  .scaletag.found{display:block}
+  .empty{color:var(--faint);font-size:13px;padding:120px 20px;text-align:center}
+  .roi-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .btn{border:1px solid var(--line2);background:#fff;border-radius:6px;padding:6px 11px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+  .btn:hover{background:#f0f6f7;border-color:var(--accent)}
+  .btn.solid{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.solid:hover{background:#0f5867}
+  .btn.tiny{padding:4px 8px;font-size:11.5px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .chk input{cursor:pointer}
+  .err{background:#fbe9e9;border:1px solid #e2b1b1;color:#8a2424;font-size:11.5px;padding:6px 10px;border-radius:5px;margin:6px 0;font-family:var(--mono);white-space:pre-wrap;display:none}
+  .warn{background:#fbf5e6;border:1px solid #e0cf8d;color:#7a5d12;font-size:11px;padding:5px 9px;border-radius:5px;margin:6px 0;display:none}
+  .mrow{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+  .mrow:last-child{border-bottom:none}
+  .mrow .lab{font-size:12.5px}
+  .mrow .lab small{display:block;color:var(--faint);font-size:10.5px;letter-spacing:.02em}
+  .mrow .val{font-family:var(--mono);font-size:16px;font-weight:500}
+  .mrow .val small{font-size:10.5px;color:var(--muted)}
+  .mrow.primary .lab{font-weight:600}
+  .mrow.primary .val{color:var(--accent);font-size:18px}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .ash{display:flex;align-items:center;gap:8px;margin:6px 0 2px}
+  .estbox{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#eef5f6;border:1px solid #bcdce1;border-radius:7px;padding:9px 12px;margin:-2px 0 3px}
+  .estgrade{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1;color:var(--accent)}
+  .estgrade .cont{font-size:13px;color:var(--muted);margin-left:5px;font-weight:400}
+  .estwhy{font-size:11px;color:var(--muted);margin:0 0 12px;min-height:14px;line-height:1.35}
+  select,input[type=text],input[type=number]{font-family:var(--sans);font-size:13px;padding:6px 8px;border:1px solid var(--line2);border-radius:6px;background:#fff;color:var(--ink)}
+  select{cursor:pointer}
+  textarea{width:100%;font-family:var(--sans);font-size:12.5px;padding:7px 8px;border:1px solid var(--line2);border-radius:6px;resize:vertical;min-height:42px}
+  details.controls{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  details.controls>summary{cursor:pointer;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;list-style:none}
+  details.controls>summary::-webkit-details-marker{display:none}
+  details.controls>summary::before{content:"▸ ";color:var(--faint)}
+  details.controls[open]>summary::before{content:"▾ "}
+  .ctl{margin:11px 0}
+  .ctl label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+  .ctl label b{font-family:var(--mono);color:var(--ink);font-weight:500}
+  input[type=range]{width:100%}
+  .ctl.dual{display:flex;gap:10px}.ctl.dual>div{flex:1}
+  .sec-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 0 4px;padding-top:8px;border-top:1px dashed var(--line)}
+  .sheetbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .sheetbar select{min-width:150px;font-weight:600}
+  .summary-pills{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+  .pill{font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--line2);border-radius:14px;padding:3px 9px;font-family:var(--mono)}
+  .pill b{color:var(--accent);font-weight:600;margin-left:3px}
+  .tablewrap{overflow-x:auto;margin-top:8px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{padding:6px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;border-bottom:1.5px solid var(--line2)}
+  td.l,th.l{text-align:left}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#f0f6f7}
+  tbody tr.active{background:#e9f2f3}
+  td .mono{font-family:var(--mono)}
+  .scalebox{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin:4px 0;flex-wrap:wrap}
+  .scalebox input{width:62px;font-family:var(--mono)}
+  .ref table{font-size:12px}
+  .ref td.l{white-space:normal;max-width:560px;color:var(--muted)}
+  .ref td:first-child{font-family:var(--mono);font-weight:600;color:var(--ink);text-align:center;width:34px}
+  .footnote{color:var(--faint);font-size:11.5px;margin-top:8px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}
+  .legend span b{font-weight:500;color:var(--ink)}
+  .bar{height:9px;border-radius:3px;display:flex;overflow:hidden;border:1px solid var(--line);margin-top:4px}
+  .bar i{display:block;height:100%}
+
+  body.blind .est-only{display:none !important}
+  body.blind .estbox-blind{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:repeating-linear-gradient(45deg,#22262b,#22262b 8px,#2b2f35 8px,#2b2f35 16px);color:#7dd3c0;padding:16px;border-radius:7px;margin:-2px 0 12px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;border:1px solid #3a3f47}
+  body:not(.blind) .estbox-blind{display:none}
+  .estbox-blind button{background:transparent;border:1px solid #7dd3c0;color:#7dd3c0;padding:5px 13px;border-radius:5px;font-size:11.5px;cursor:pointer;font-family:inherit;letter-spacing:.06em}
+  .estbox-blind button:hover{background:#7dd3c0;color:#22262b}
+  .rehide{display:none;background:none;border:none;color:var(--faint);font-size:10.5px;cursor:pointer;padding:2px 4px;margin-left:6px;text-decoration:underline}
+  .rehide:hover{color:var(--accent)}
+  body:not(.blind) .rehide{display:inline-block}
+</style>
+</head>
+<body class="blind">
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Trichrome Lung Quantifier</h1>
+      <div class="sub">Automated Masson's trichrome fibrosis scoring</div>
+    </div>
+    <div class="sub" style="text-align:right">by Tristan Tetting and Maggie Osterhaus</div>
+  </header>
+
+  <p class="lede">Organize work into <b>sheets</b> — one per mouse / whole lung. Each sheet keeps its own images and scores. Use the <b>‹ ›</b> arrows (or ← →) to step through fields while scoring. Each field gets an automated <b>Ashcroft estimate (0–8)</b> driven by how much of the analyzed lung is occupied by tissue versus open airspace, after airways, vessels, peri-airway zones and off-slide background are excluded.</p>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="imgs-head">
+        <h2 style="margin:0">Images</h2>
+        <button class="btn tiny" id="clearAll" title="remove every image in this sheet">Clear</button>
+      </div>
+      <div class="imgs-sub">sheet <b id="sheetNameLbl">Sheet 1</b><br><span id="imgCount">0 images</span></div>
+      <label class="drop" id="drop">
+        <div class="big">Drop or click to add</div>
+        <div class="hint">JPG · PNG · TIFF · multiple at once</div>
+        <input type="file" id="file" accept="image/*,.tif,.tiff" multiple>
+      </label>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div class="panel">
+      <div class="stage-head">
+        <div style="display:flex;align-items:center;gap:6px">
+          <h2 style="margin:0">Field viewer</h2>
+          <div class="navgrp">
+            <button class="navbtn" id="prevBtn" title="previous (←)" disabled>‹</button>
+            <span class="navcount" id="navcount">0 / 0</span>
+            <button class="navbtn" id="nextBtn" title="next (→)" disabled>›</button>
+          </div>
+        </div>
+        <div class="toggles">
+          <label class="chk" title="Tint excluded airways / vessels / peri-airway / off-slide / artifacts"><input type="checkbox" id="showExcl" checked> exclusions</label>
+          <div class="seg" id="viewseg">
+            <button data-v="orig" class="on">Original</button>
+            <button data-v="overlay">Classified</button>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-area" id="area">
+        <div class="empty" id="empty">No image selected.<br>Add images on the left to begin.</div>
+        <canvas id="view" style="display:none"></canvas>
+        <div class="roihint" id="roihint" style="display:none">drag to set ROI</div>
+        <div class="scaletag" id="scaletag"></div>
+      </div>
+      <div class="roi-row">
+        <span class="small-caps">ROI</span>
+        <span id="roitxt" class="mono" style="font-family:var(--mono)">full image</span>
+        <button class="btn tiny" id="roireset" style="margin-left:auto">Use full image</button>
+      </div>
+
+      <div class="scalebox">
+        <span class="small-caps" style="flex:none">Scale bar</span>
+        <span id="scaleAutoLbl" style="font-family:var(--mono)">—</span>
+        <span style="margin-left:auto">bar represents</span>
+        <input type="number" id="barUm" step="1" min="1" value="200"> <span>µm</span>
+        <button class="btn tiny" id="barApplyOne">Apply to this</button>
+        <button class="btn tiny" id="barApplyAll">Apply to all</button>
+      </div>
+
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--collagen)"></span><b>collagen</b></span>
+        <span><span class="swatch" style="background:var(--tissue)"></span><b>cytoplasm</b></span>
+        <span><span class="swatch" style="background:var(--nuclei)"></span><b>nuclei</b></span>
+        <span><span class="swatch" style="background:var(--air)"></span><b>airspace</b></span>
+        <span><span class="swatch" style="background:var(--airway)"></span><b>airway</b></span>
+        <span><span class="swatch" style="background:var(--vessel)"></span><b>vessel</b></span>
+        <span><span class="swatch" style="background:var(--peri)"></span><b>peri-airway</b></span>
+        <span><span class="swatch" style="background:var(--offslide)"></span><b>off-slide</b></span>
+      </div>
+
+      <details class="controls" id="controls">
+        <summary>Advanced — segmentation &amp; exclusions</summary>
+        <p class="footnote" style="margin:8px 0">Defaults are tuned for whole-lung trichrome at standard staining. Adjust only if the Classified overlay is mis-labeling pixels.</p>
+        <div class="sec-title" style="border-top:none;padding-top:0">Airspace detection</div>
+        <div class="ctl"><label>Airspace brightness ≥ <b id="lwv">0.85</b></label><input type="range" id="whiteV" min="0.5" max="1" step="0.01" value="0.85"></div>
+        <div class="ctl"><label>Airspace max color ≤ <b id="lws">0.10</b></label><input type="range" id="whiteS" min="0.02" max="0.4" step="0.01" value="0.10"></div>
+        <div class="sec-title">Stain sensitivity</div>
+        <div class="ctl"><label>Collagen detection ≥ <b id="lcol">0.22</b></label><input type="range" id="colOd" min="0.05" max="0.8" step="0.01" value="0.22"></div>
+        <div class="ctl"><label>Nuclei detection ≥ <b id="lnuc">0.35</b></label><input type="range" id="nucOd" min="0.1" max="1" step="0.01" value="0.35"></div>
+        <div class="sec-title">Structure exclusions</div>
+        <div class="ctl"><label>Airway when airspace blob ≥ <b id="lawm">12×</b> median alveolus</label><input type="range" id="awMult" min="4" max="40" step="0.5" value="12"></div>
+        <div class="ctl"><label>Peri-airway buffer <b id="lpb">10 px</b></label><input type="range" id="periBuf" min="0" max="40" step="1" value="10"></div>
+        <label class="chk" style="margin:6px 0 2px"><input type="checkbox" id="vessExcl" checked> Exclude vessels (round lumen + collagen ring)</label>
+        <label class="chk" style="margin:4px 0 2px"><input type="checkbox" id="offExcl" checked> Exclude off-slide white background</label>
+        <label class="chk" style="margin:4px 0 2px"><input type="checkbox" id="artMask" checked> Exclude scale bar / text panels / dark borders</label>
+        <button class="btn" id="recalcAll" style="margin-top:8px">Recompute all images</button>
+      </details>
+    </div>
+
+    <div class="panel">
+      <h2>This field</h2>
+      <div id="fname" class="small-caps" style="margin:-4px 0 8px;color:var(--muted);word-break:break-all">—</div>
+      <div class="err" id="errbox"></div>
+      <div class="warn" id="warnbox"></div>
+
+      <div class="est-only">
+        <div class="estbox" id="estbox">
+          <div>
+            <div class="small-caps" style="color:var(--accent)">Estimated Ashcroft<button class="rehide" id="rehideBtn" title="hide estimates again">hide</button></div>
+            <div class="estgrade"><span id="estgrade">—</span><span class="cont" id="estcont"></span></div>
+          </div>
+          <button class="btn" id="useest" disabled title="copy estimate into the lab score">use →</button>
+        </div>
+        <div class="estwhy" id="estwhy">add an image to estimate</div>
+      </div>
+      <div class="estbox-blind">
+        <span>◼ ESTIMATE HIDDEN</span>
+        <button id="revealBtn">reveal all estimates →</button>
+      </div>
+
+      <div class="ash">
+        <span class="small-caps" style="flex:none">Lab score<br><span style="font-weight:400;letter-spacing:0;text-transform:none">(manual)</span></span>
+        <select id="ash"><option value="">— not scored —</option></select>
+      </div>
+      <input type="text" id="region" placeholder="region label (e.g. LLL field 2)" style="width:100%;margin:6px 0">
+      <textarea id="notes" placeholder="notes (folds, artifacts, what you excluded…)"></textarea>
+
+      <div style="margin-top:14px">
+        <div class="mrow primary"><div class="lab"><span class="swatch" style="background:var(--tissue)"></span>Tissue area<small>non-airspace ÷ analyzed — drives the score</small></div><div class="val" id="m_tis">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--air)"></span>Airspace area<small>open alveolar space ÷ analyzed</small></div><div class="val" id="m_air">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--collagen)"></span>Collagen, % of tissue<small>blue ÷ (blue+pink+nuclei)</small></div><div class="val" id="m_col">—</div></div>
+        <div class="mrow"><div class="lab"><span class="swatch" style="background:var(--dense)"></span>Fibrotic-mass fraction<small>tissue far from any airspace ÷ analyzed</small></div><div class="val" id="m_mass">—</div></div>
+        <div class="mrow"><div class="lab" style="color:var(--muted)">Wall thickness, median<small>needs scale bar (µm)</small></div><div class="val" id="m_wt" style="font-size:14px;color:var(--muted)">—</div></div>
+        <div class="mrow"><div class="lab" style="color:var(--muted)">Analyzed area<small>(ROI − airways − vessels − peri − off-slide) ÷ ROI</small></div><div class="val" id="m_eff" style="font-size:14px;color:var(--muted)">—</div></div>
+      </div>
+      <div class="bar" id="compbar" title="composition of analyzed area"><i style="background:var(--air);width:100%"></i></div>
+      <p class="footnote" id="pxnote">—</p>
+
+      <details class="controls est-only" id="modelctl" style="margin-top:12px">
+        <summary>Advanced — scoring calibration</summary>
+        <p class="footnote" style="margin:8px 0">Ashcroft = a·T + b·T² + c, where T = tissue % of analyzed area. The estimate is scale-independent (it uses area ratios, not µm). Reset restores the calibrated defaults.</p>
+        <div class="ctl dual">
+          <div><label>a <b id="lca">0.16642</b></label><input type="number" id="m_a" step="0.0001" value="0.16642" style="width:100%"></div>
+          <div><label>b <b id="lcb">-0.000765</b></label><input type="number" id="m_b" step="0.00001" value="-0.000765" style="width:100%"></div>
+        </div>
+        <div class="ctl"><label>c <b id="lcc">-2.0783</b></label><input type="number" id="m_c" step="0.001" value="-2.0783" style="width:100%"></div>
+        <button class="btn" id="m_reset" style="margin-top:4px">Reset to calibrated defaults</button>
+      </details>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <div class="sheetbar">
+        <h2 style="margin:0">Session table</h2>
+        <select id="sheetSel" title="switch mouse / whole-lung sheet"></select>
+        <button class="btn tiny" id="newSheet">+ New sheet</button>
+        <button class="btn tiny" id="renameSheet">Rename</button>
+        <button class="btn tiny" id="delSheet">Delete</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" id="export">Export sheet</button>
+        <button class="btn solid" id="exportAll">Export all sheets</button>
+      </div>
+    </div>
+    <div class="summary-pills est-only" id="sheetSummary"></div>
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th class="l">#</th><th class="l">File / region</th>
+          <th class="est-col">Est.</th><th>Lab</th>
+          <th>Tissue %</th><th>Airsp %</th><th>Coll %tis</th><th>Mass %</th><th>Anlz %</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="10" class="l" style="color:var(--faint)">No images yet.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel ref" style="margin-top:18px">
+    <details>
+      <summary style="cursor:pointer;font-family:var(--serif);font-size:15px;font-weight:600">Ashcroft scoring reference (0–8)</summary>
+      <table style="margin-top:10px">
+        <thead><tr><th>Grade</th><th class="l">Histological criteria</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td class="l">Normal lung.</td></tr>
+          <tr><td>1</td><td class="l">Minimal fibrous thickening of alveolar or bronchiolar walls.</td></tr>
+          <tr><td>2</td><td class="l">Moderate thickening of walls without obvious damage to lung architecture.</td></tr>
+          <tr><td>3</td><td class="l">Increased fibrosis with definite damage to lung structure and formation of fibrous bands or small fibrous masses.</td></tr>
+          <tr><td>4</td><td class="l">Severe distortion of structure and large fibrous areas; "honeycomb lung" placed in this category.</td></tr>
+          <tr><td>5</td><td class="l">Confluent fibrous masses with definite damage; some preserved airspaces remain.</td></tr>
+          <tr><td>6</td><td class="l">Large contiguous fibrous masses; only occasional airspaces, largely filled with cells/debris.</td></tr>
+          <tr><td>7</td><td class="l">Severe distortion; airspaces nearly obliterated, occasional air bubbles only.</td></tr>
+          <tr><td>8</td><td class="l">Total fibrous obliteration of the field.</td></tr>
+        </tbody>
+      </table>
+      <p class="footnote">Modified Ashcroft scale (Ashcroft et al. 1988; Hübner et al. 2008). Score the worst-affected representative high-power field.</p>
+    </details>
+  </div>
+
+  <p class="footnote" style="margin-top:18px">All processing is local — closing the tab clears every sheet, so export before you leave. Each loaded image holds its full bitmap in memory; for very large sets work one mouse per sheet and export as you go.</p>
+</div>
+
+<script>
+"use strict";
+(function(){
+  const ASH_MAX=8, ANALYSIS_MAX=1400;
+  const AIR=0, TIS=1, COL=2, NUC=3;
+
+  // Trichrome stain matrix (Ruifrok–Johnston). Rows: collagen / cytoplasm / nuclei OD vectors.
+  const STAIN = [
+    [0.799, 0.591, 0.105], // methyl/aniline blue → collagen
+    [0.099, 0.737, 0.668], // Biebrich scarlet / ponceau → cytoplasm
+    [0.650, 0.704, 0.286]  // hematoxylin → nuclei
+  ];
+  // Beer–Lambert in OD space: OD = T·C with stain vectors as COLUMNS. STAIN is rows → transpose, then invert.
+  const STAIN_INV = (function(){
+    const N = STAIN.map(r=>{const n=Math.hypot(r[0],r[1],r[2])||1;return [r[0]/n,r[1]/n,r[2]/n];});
+    const a=N[0][0],b=N[1][0],c=N[2][0], d=N[0][1],e=N[1][1],f=N[2][1], g=N[0][2],h=N[1][2],i=N[2][2];
+    const det=a*(e*i-f*h)-b*(d*i-f*g)+c*(d*h-e*g);
+    if(Math.abs(det)<1e-9) return null;
+    return [
+      [(e*i-f*h)/det,(c*h-b*i)/det,(b*f-c*e)/det],
+      [(f*g-d*i)/det,(a*i-c*g)/det,(c*d-a*f)/det],
+      [(d*h-e*g)/det,(b*g-a*h)/det,(a*e-b*d)/det]
+    ];
+  })();
+
+  let sheets=[], activeSheet=null;
+  let imgs=[], curId=null;
+  let viewMode='orig', dragging=null, showExcl=true, blind=true;
+
+  const P={
+    whiteV:0.85, whiteS:0.10,
+    colOd:0.22, nucOd:0.35,
+    awMult:12, periBuf:10, massDist:5,
+    vessExcl:true, offExcl:true, artMask:true
+  };
+  // Scoring model: Ashcroft = a*T + b*T^2 + c,  T = tissue% of analyzed area.
+  // Calibrated on a multi-mouse trichrome set spanning grades 0–7 with the full
+  // exclusion pipeline (MAE 0.48, within ±1 grade 92%, Pearson r 0.91).
+  const Sdef={a:0.16642, b:-0.000765, c:-2.0783};
+  const S={...Sdef};
+  // Global assumed scale-bar length (µm). Per-image override stored on each record.
+  const G={barUm:200};
+
+  const $=id=>document.getElementById(id);
+  const fileEl=$('file'),dropEl=$('drop'),stripEl=$('strip'),areaEl=$('area'),emptyEl=$('empty'),
+        viewEl=$('view'),vctx=viewEl.getContext('2d'),roihintEl=$('roihint'),roitxtEl=$('roitxt'),
+        ashEl=$('ash'),regionEl=$('region'),notesEl=$('notes'),fnameEl=$('fname'),tbodyEl=$('tbody'),
+        errEl=$('errbox'),warnEl=$('warnbox'),sheetSelEl=$('sheetSel');
+
+  for(let i=0;i<=ASH_MAX;i++){const o=document.createElement('option');o.value=i;o.textContent=i;ashEl.appendChild(o);}
+
+  function makeSheet(name){return {id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name, imgs:[], curId:null};}
+  function useSheet(s){activeSheet=s; imgs=s.imgs; curId=s.curId;}
+
+  function renderSheetSelect(){
+    sheetSelEl.innerHTML='';
+    sheets.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=`${s.name} (${s.imgs.length})`;if(s===activeSheet)o.selected=true;sheetSelEl.appendChild(o);});
+    $('delSheet').disabled = sheets.length<=1;
+  }
+  function renderImagesHeader(){
+    $('sheetNameLbl').textContent = activeSheet?activeSheet.name:'—';
+    $('imgCount').textContent = imgs.length+' image'+(imgs.length===1?'':'s');
+  }
+  function updateNav(){
+    const n=imgs.length; let idx=imgs.findIndex(x=>x.id===curId);
+    $('navcount').textContent = n? ((idx<0?1:idx+1)+' / '+n) : '0 / 0';
+    $('prevBtn').disabled = n<2; $('nextBtn').disabled = n<2;
+  }
+  function switchSheet(id){
+    const s=sheets.find(x=>x.id===id); if(!s) return;
+    useSheet(s);
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    const keep = curId && imgs.some(x=>x.id===curId);
+    select(keep?curId:(imgs.length?imgs[0].id:null));
+    renderTable();
+  }
+  function newSheet(){
+    const base='Sheet '+(sheets.length+1);
+    const name=prompt('Name this sheet (e.g., mouse ID):', base);
+    if(name===null) return;
+    const s=makeSheet((name.trim()||base)); sheets.push(s); switchSheet(s.id);
+  }
+  function renameSheet(){
+    if(!activeSheet) return;
+    const name=prompt('Rename sheet:', activeSheet.name);
+    if(name===null) return;
+    activeSheet.name = name.trim()||activeSheet.name;
+    renderSheetSelect(); renderImagesHeader();
+  }
+  function deleteSheet(){
+    if(sheets.length<=1){alert('Can’t delete the last sheet.');return;}
+    if(!confirm(`Delete sheet "${activeSheet.name}" and its ${imgs.length} image(s)? This cannot be undone.`)) return;
+    const idx=sheets.indexOf(activeSheet);
+    sheets.splice(idx,1);
+    switchSheet(sheets[Math.max(0,idx-1)].id);
+  }
+  function clearAllImages(){
+    if(!imgs.length) return;
+    if(!confirm(`Remove all ${imgs.length} image(s) from sheet "${activeSheet.name}"? This cannot be undone.`)) return;
+    imgs.length=0; curId=null; if(activeSheet)activeSheet.curId=null;
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    select(null); renderTable();
+  }
+  function nav(dir){
+    if(!imgs.length) return;
+    let idx=imgs.findIndex(x=>x.id===curId); if(idx<0)idx=0;
+    idx=(idx+dir+imgs.length)%imgs.length;
+    select(imgs[idx].id);
+    const el=stripEl.querySelector('.thumb.active'); if(el)el.scrollIntoView({block:'nearest'});
+  }
+
+  // ---------- color utilities ----------
+  function rgb2hsv(r,g,b){
+    r/=255;g/=255;b/=255;
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+    let h=0;
+    if(d){
+      if(mx===r)h=((g-b)/d)%6;
+      else if(mx===g)h=(b-r)/d+2;
+      else h=(r-g)/d+4;
+      h*=60; if(h<0)h+=360;
+    }
+    return [h, mx?d/mx:0, mx];
+  }
+  function rgbToOD(r,g,b){
+    return [-Math.log10((r+1)/256), -Math.log10((g+1)/256), -Math.log10((b+1)/256)];
+  }
+  function deconvPixel(r,g,b){
+    const od=rgbToOD(r,g,b), inv=STAIN_INV;
+    return [
+      Math.max(0, inv[0][0]*od[0]+inv[0][1]*od[1]+inv[0][2]*od[2]),
+      Math.max(0, inv[1][0]*od[0]+inv[1][1]*od[1]+inv[1][2]*od[2]),
+      Math.max(0, inv[2][0]*od[0]+inv[2][1]*od[1]+inv[2][2]*od[2])
+    ];
+  }
+  function classifyDeconv(r,g,b){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v>=P.whiteV && s<=P.whiteS) return AIR;
+    const [cCol,cCyt,cNuc]=deconvPixel(r,g,b);
+    let bestK=-1,bestV=0;
+    if(cCol>=P.colOd && cCol>bestV){bestK=COL;bestV=cCol;}
+    if(cNuc>=P.nucOd && cNuc>bestV){bestK=NUC;bestV=cNuc;}
+    if(cCyt>=0.15 && cCyt>bestV){bestK=TIS;bestV=cCyt;}
+    return bestK<0?TIS:bestK;
+  }
+  // Silent fallback for washed-out slides where deconvolution finds almost no signal.
+  function classifyHSV(r,g,b){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v>=P.whiteV && s<=P.whiteS) return AIR;
+    if(s>=0.18 && h>=165 && h<=255) return COL;
+    if(v<0.45 && s>0.35) return NUC;
+    return TIS;
+  }
+  function isArtifactPixel(r,g,b){
+    const [h,s,v]=rgb2hsv(r,g,b);
+    if(v<0.10) return true;
+    if(s>0.80 && v>0.45 && (h<10 || h>352)) return true;
+    return false;
+  }
+
+  // ---------- masks & morphology ----------
+  function ccLabel(mask,w,h){
+    const N=w*h, lab=new Int32Array(N), sizes=[0], bboxes=[null], stack=new Int32Array(N);
+    let next=1;
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const i0=y*w+x;
+      if(!mask[i0]||lab[i0])continue;
+      lab[i0]=next; let size=0,sp=0; stack[sp++]=i0;
+      let bx0=x,by0=y,bx1=x,by1=y;
+      while(sp){
+        const j=stack[--sp]; size++;
+        const jx=j%w, jy=(j-jx)/w;
+        if(jx<bx0)bx0=jx; else if(jx>bx1)bx1=jx;
+        if(jy<by0)by0=jy; else if(jy>by1)by1=jy;
+        if(jx>0){const k=j-1;if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+        if(jx<w-1){const k=j+1;if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+        if(jy>0){const k=j-w;if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+        if(jy<h-1){const k=j+w;if(mask[k]&&!lab[k]){lab[k]=next;stack[sp++]=k;}}
+      }
+      sizes.push(size); bboxes.push({x0:bx0,y0:by0,x1:bx1+1,y1:by1+1}); next++;
+    }
+    return {lab,sizes,bboxes,count:next-1};
+  }
+  function erode(mask,w,h,iter){
+    let cur=mask;
+    for(let it=0;it<iter;it++){
+      const next=new Uint8Array(w*h);
+      for(let y=1;y<h-1;y++){const yw=y*w;
+        for(let x=1;x<w-1;x++){const i=yw+x;
+          if(cur[i]&&cur[i-1]&&cur[i+1]&&cur[i-w]&&cur[i+w])next[i]=1;}}
+      cur=next;
+    }
+    return cur;
+  }
+  function distanceTransform(mask,w,h){
+    const N=w*h, INF=1e9, D=3, DD=4, d=new Float32Array(N);
+    for(let i=0;i<N;i++) d[i]=mask[i]?0:INF;
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const i=y*w+x; if(d[i]===0)continue; let best=d[i];
+      if(y>0){const v=d[i-w]+D;if(v<best)best=v;
+        if(x>0){const v2=d[i-w-1]+DD;if(v2<best)best=v2;}
+        if(x<w-1){const v2=d[i-w+1]+DD;if(v2<best)best=v2;}}
+      if(x>0){const v=d[i-1]+D;if(v<best)best=v;}
+      d[i]=best;
+    }
+    for(let y=h-1;y>=0;y--)for(let x=w-1;x>=0;x--){
+      const i=y*w+x; let best=d[i];
+      if(y<h-1){const v=d[i+w]+D;if(v<best)best=v;
+        if(x>0){const v2=d[i+w-1]+DD;if(v2<best)best=v2;}
+        if(x<w-1){const v2=d[i+w+1]+DD;if(v2<best)best=v2;}}
+      if(x<w-1){const v=d[i+1]+D;if(v<best)best=v;}
+      d[i]=best;
+    }
+    for(let i=0;i<N;i++) d[i]/=3;
+    return d;
+  }
+  function countMask(m){let c=0;for(let i=0;i<m.length;i++)if(m[i])c++;return c;}
+
+  // ---------- scale bar: thin dark horizontal line in bottom 30% ----------
+  function detectScaleBar(adata, ascale){
+    const w=adata.width, h=adata.height, d=adata.data;
+    const y0=Math.floor(h*0.70), DARK=110, GAP_TOL=3, MIN_LEN=40;
+    const sh=h-y0, dark=new Uint8Array(sh*w);
+    for(let y=y0;y<h;y++){const sy=y-y0;
+      for(let x=0;x<w;x++){const p=(y*w+x)*4; if((d[p]+d[p+1]+d[p+2])/3<DARK) dark[sy*w+x]=1;}}
+    let best=null;
+    function tryRun(sy,x0,x1,len){
+      if(len<MIN_LEN) return; if(best&&len<=best.len) return;
+      let ok=false;
+      for(const dy of [-2,-1,1,2]){
+        const ny=sy+dy; if(ny<0||ny>=sh)continue;
+        let lo=false,hi=false;
+        for(let dx=-4;dx<=4;dx++){
+          if(x0+dx>=0&&x0+dx<w&&dark[ny*w+(x0+dx)])lo=true;
+          if(x1+dx>=0&&x1+dx<w&&dark[ny*w+(x1+dx)])hi=true;
+          if(lo&&hi)break;
+        }
+        if(lo&&hi){ok=true;break;}
+      }
+      if(ok) best={y:y0+sy,x0,x1,len};
+    }
+    for(let sy=0;sy<sh;sy++){
+      let rs=-1,rl=0,gap=0;
+      for(let x=0;x<w;x++){
+        if(dark[sy*w+x]){ if(rs<0)rs=x; rl+=1+gap; gap=0; }
+        else if(rs>=0){ gap++; if(gap>GAP_TOL){ tryRun(sy,rs,rs+rl-1,rl); rs=-1;rl=0;gap=0; } }
+      }
+      if(rs>=0) tryRun(sy,rs,rs+rl-1,rl);
+    }
+    if(!best) return null;
+    return {analysis:best, lenAnalysis:best.len, fullLen:best.len*ascale};
+  }
+
+  function detectOffSlide(airMask, w, h){
+    const N=w*h, offMask=new Uint8Array(N), cc=ccLabel(airMask,w,h), minSize=N*0.08;
+    for(let lab=1;lab<=cc.count;lab++){
+      const sz=cc.sizes[lab]; if(sz<minSize) continue;
+      const b=cc.bboxes[lab];
+      if(!(b.x0===0||b.y0===0||b.x1===w||b.y1===h)) continue;
+      const bw=b.x1-b.x0, bh=b.y1-b.y0;
+      if(sz/Math.max(1,bw*bh)<0.80) continue;
+      for(let y=b.y0;y<b.y1;y++)for(let x=b.x0;x<b.x1;x++){const i=y*w+x; if(cc.lab[i]===lab) offMask[i]=1;}
+    }
+    return offMask;
+  }
+  function detectVessels(cls, w, h, airwayMask, offMask){
+    const N=w*h, vMask=new Uint8Array(N), innerAir=new Uint8Array(N);
+    for(let i=0;i<N;i++) if(cls[i]===AIR && !airwayMask[i] && !offMask[i]) innerAir[i]=1;
+    const cc=ccLabel(innerAir,w,h), minLumen=30, maxLumen=N*0.01;
+    for(let lab=1;lab<=cc.count;lab++){
+      const sz=cc.sizes[lab]; if(sz<minLumen||sz>maxLumen) continue;
+      const b=cc.bboxes[lab], bw=b.x1-b.x0, bh=b.y1-b.y0, aspect=bw/bh;
+      if(aspect<0.25||aspect>4) continue;
+      if(sz/(bw*bh)<0.45) continue;
+      let perim=0,colN=0;
+      const pad=Math.max(2,Math.round(Math.min(bw,bh)*0.20));
+      const x0=Math.max(0,b.x0-pad),y0=Math.max(0,b.y0-pad),x1=Math.min(w,b.x1+pad),y1=Math.min(h,b.y1+pad);
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*w+x; if(cc.lab[i]===lab)continue; perim++; if(cls[i]===COL)colN++;}
+      if(!perim || colN/perim<0.06) continue;
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*w+x; if(airwayMask[i]||offMask[i])continue; vMask[i]=1;}
+    }
+    return vMask;
+  }
+
+  // ---------- Ashcroft estimate ----------
+  function estimate(m){
+    if(!m) return null;
+    const T=m.tissuePct;
+    let cont = S.a*T + S.b*T*T + S.c;
+    cont = Math.max(0, Math.min(ASH_MAX, cont));
+    const grade = Math.max(0, Math.min(ASH_MAX, Math.round(cont)));
+    let why = `tissue fills ${T.toFixed(0)}% of analyzed lung → grade ${cont.toFixed(1)}`;
+    if(m.effectivePct < 20) why += `  ⚠ only ${m.effectivePct.toFixed(0)}% of field analyzed`;
+    return {grade, cont, why};
+  }
+
+  // ---------- file loading ----------
+  function addFiles(list){
+    [...list].forEach(f=>{
+      const isTiff=/tiff?$/i.test(f.name)||/tiff/i.test(f.type);
+      const rd=new FileReader();
+      rd.onload=e=>{ isTiff?loadTiff(f.name,e.target.result):loadRaster(f.name,e.target.result); };
+      isTiff? rd.readAsArrayBuffer(f):rd.readAsDataURL(f);
+    });
+  }
+  function loadRaster(name,dataURL){
+    const im=new Image();
+    im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+      c.getContext('2d').drawImage(im,0,0);register(name,c);};
+    im.onerror=()=>showErr('Could not read '+name);
+    im.src=dataURL;
+  }
+  function loadTiff(name,buf){
+    if(typeof UTIF==='undefined'){showErr('TIFF decoder not loaded yet — try again in a moment.');return;}
+    try{
+      const ifds=UTIF.decode(buf);UTIF.decodeImage(buf,ifds[0]);
+      const rgba=UTIF.toRGBA8(ifds[0]),w=ifds[0].width,h=ifds[0].height;
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const id=new ImageData(new Uint8ClampedArray(rgba),w,h);c.getContext('2d').putImageData(id,0,0);
+      register(name,c);
+    }catch(err){showErr('Failed to decode TIFF '+name+': '+err.message);}
+  }
+  function showErr(msg){errEl.style.display='';errEl.textContent=msg;console.error(msg);}
+  function clearErr(){errEl.style.display='none';errEl.textContent='';}
+  function showWarn(msg){if(!msg){warnEl.style.display='none';warnEl.textContent='';return;}warnEl.style.display='';warnEl.textContent=msg;}
+
+  function register(name,full){
+    const w=full.width,h=full.height;
+    const scale=Math.max(1,Math.max(w,h)/ANALYSIS_MAX);
+    const aw=Math.round(w/scale),ah=Math.round(h/scale);
+    const ac=document.createElement('canvas');ac.width=aw;ac.height=ah;
+    ac.getContext('2d').drawImage(full,0,0,aw,ah);
+    const adata=ac.getContext('2d').getImageData(0,0,aw,ah);
+    const tc=document.createElement('canvas');tc.width=46;tc.height=34;
+    tc.getContext('2d').drawImage(full,0,0,46,34);
+    const rec={id:'i'+Date.now()+Math.random().toString(36).slice(2,6),name,w,h,full,adata,ascale:scale,
+               roi:null,ash:'',region:'',notes:'',metrics:null,barUmOverride:null,thumb:tc.toDataURL()};
+    imgs.push(rec);
+    safeCompute(rec);
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    if(!curId) select(rec.id); else updateNav();
+    renderTable();
+  }
+  function safeCompute(rec){
+    try{ compute(rec); clearErr(); }
+    catch(err){ console.error(err); showErr('compute failed: '+err.message); rec.metrics=null; rec.est=null; }
+  }
+
+  function compute(rec){
+    const {adata,ascale}=rec, aw=adata.width, ah=adata.height, d=adata.data;
+    let x0=0,y0=0,x1=aw,y1=ah;
+    if(rec.roi){
+      x0=Math.max(0,Math.floor(rec.roi.x/ascale));
+      y0=Math.max(0,Math.floor(rec.roi.y/ascale));
+      x1=Math.min(aw,Math.ceil((rec.roi.x+rec.roi.w)/ascale));
+      y1=Math.min(ah,Math.ceil((rec.roi.y+rec.roi.h)/ascale));
+    }
+    const rw=Math.max(1,x1-x0), rh=Math.max(1,y1-y0), N=rw*rh;
+    const cls=new Uint8Array(N);
+    const artCandidate=new Uint8Array(N);
+
+    // Decide deconvolution vs HSV fallback: sample to check stain signal strength.
+    let useDeconv = !!STAIN_INV;
+    if(useDeconv){
+      let cntStrong=0, n=Math.min(1000,N);
+      for(let s=0;s<n;s++){
+        const xi=Math.floor(Math.random()*rw), yi=Math.floor(Math.random()*rh);
+        const p=((yi+y0)*aw+(xi+x0))*4, R=d[p],Gg=d[p+1],B=d[p+2];
+        const [hh,sa,vv]=rgb2hsv(R,Gg,B);
+        if(vv>=P.whiteV && sa<=P.whiteS) continue;
+        const od=rgbToOD(R,Gg,B);
+        if(od[0]+od[1]+od[2]>0.30) cntStrong++;
+      }
+      if(cntStrong < n*0.04) useDeconv=false;
+    }
+
+    // Scale bar (only used to display lengths in µm; the score is scale-independent).
+    let scaleBar=null, umPerPx=null, scaleBarFound=false;
+    try{ scaleBar=detectScaleBar(adata, ascale); }catch(e){ scaleBar=null; }
+    if(scaleBar){
+      const barUm = rec.barUmOverride || G.barUm;
+      umPerPx = barUm / scaleBar.fullLen; // µm per source pixel
+      scaleBarFound = true;
+    }
+    rec.scaleBar=scaleBar; rec.scaleBarFound=scaleBarFound; rec.umPerPx=umPerPx;
+
+    // Classify pixels
+    const cwX=rw*0.20, cwY=rh*0.20;
+    for(let yy=0;yy<rh;yy++){const ay=yy+y0;
+      for(let xx=0;xx<rw;xx++){
+        const ax=xx+x0, p=(ay*aw+ax)*4, li=yy*rw+xx;
+        const R=d[p],Gg=d[p+1],B=d[p+2];
+        cls[li]= useDeconv ? classifyDeconv(R,Gg,B) : classifyHSV(R,Gg,B);
+        if(P.artMask){
+          const inCornerX=xx<cwX||xx>=rw-cwX, inCornerY=yy<cwY||yy>=rh-cwY;
+          if(inCornerX&&inCornerY&&isArtifactPixel(R,Gg,B)) artCandidate[li]=1;
+        }
+      }
+    }
+
+    const airMask=new Uint8Array(N);
+    for(let i=0;i<N;i++) airMask[i]=(cls[i]===AIR)?1:0;
+    const offMask = P.offExcl ? detectOffSlide(airMask,rw,rh) : new Uint8Array(N);
+
+    // Artifact mask: scale-bar bbox + corner artifacts
+    const artifactMask=new Uint8Array(N);
+    if(scaleBar){
+      const sb=scaleBar.analysis;
+      const bx0=Math.max(0,sb.x0-x0-8), by0=Math.max(0,sb.y-y0-22),
+            bx1=Math.min(rw,sb.x1-x0+8), by1=Math.min(rh,sb.y-y0+12);
+      if(bx1>bx0&&by1>by0) for(let yy=by0;yy<by1;yy++)for(let xx=bx0;xx<bx1;xx++) artifactMask[yy*rw+xx]=1;
+    }
+    if(P.artMask){
+      const ccArt=ccLabel(artCandidate,rw,rh), minArt=80, pad=Math.max(2,Math.round(Math.min(rw,rh)*0.005));
+      for(let lab=1;lab<=ccArt.count;lab++){
+        if(ccArt.sizes[lab]<minArt) continue;
+        const b=ccArt.bboxes[lab], bw=b.x1-b.x0, bh=b.y1-b.y0;
+        if(bw*bh>N*0.12) continue;
+        const bx0=Math.max(0,b.x0-pad),by0=Math.max(0,b.y0-pad),bx1=Math.min(rw,b.x1+pad),by1=Math.min(rh,b.y1+pad);
+        for(let y=by0;y<by1;y++)for(let x=bx0;x<bx1;x++) artifactMask[y*rw+x]=1;
+      }
+    }
+
+    // Airway detection: 4-px erosion, ≥12× median alveolus, ≤10% ROI, solidity ≥0.45
+    const innerAir=new Uint8Array(N);
+    for(let i=0;i<N;i++) innerAir[i]=(cls[i]===AIR && !offMask[i] && !artifactMask[i])?1:0;
+    const EROSION=4, eroded=erode(innerAir,rw,rh,EROSION), ccEroded=ccLabel(eroded,rw,rh);
+    let medianAlv=0, airwayMin=Infinity, airwayMax=Math.round(N*0.10);
+    if(ccEroded.count>0){
+      const sizes=ccEroded.sizes.slice(1).filter(s=>s>=4).sort((a,b)=>a-b);
+      medianAlv=sizes.length?sizes[Math.floor(sizes.length/2)]:0;
+      airwayMin=Math.max(120,Math.round(medianAlv*P.awMult));
+    }
+    const coreIsAirway=new Uint8Array(ccEroded.count+1); let airwayCount=0;
+    for(let lab=1;lab<=ccEroded.count;lab++){
+      const sz=ccEroded.sizes[lab]; if(sz<airwayMin||sz>airwayMax) continue;
+      const b=ccEroded.bboxes[lab];
+      if(sz/Math.max(1,(b.x1-b.x0)*(b.y1-b.y0))<0.45) continue;
+      coreIsAirway[lab]=1; airwayCount++;
+    }
+    const airwayMask=new Uint8Array(N);
+    if(airwayCount>0){
+      const coreMask=new Uint8Array(N);
+      for(let i=0;i<N;i++) if(eroded[i]&&coreIsAirway[ccEroded.lab[i]]) coreMask[i]=1;
+      const dtCore=distanceTransform(coreMask,rw,rh), reach=EROSION+2;
+      for(let i=0;i<N;i++) if(innerAir[i]&&dtCore[i]<=reach) airwayMask[i]=1;
+    }
+
+    const vesselMask = P.vessExcl ? detectVessels(cls,rw,rh,airwayMask,offMask) : new Uint8Array(N);
+
+    const periMask=new Uint8Array(N);
+    if(P.periBuf>0 && airwayCount>0){
+      const dtAirway=distanceTransform(airwayMask,rw,rh);
+      for(let i=0;i<N;i++) if(!airwayMask[i]&&dtAirway[i]<=P.periBuf) periMask[i]=1;
+    }
+
+    const smallAirMask=new Uint8Array(N); let smallAirAny=false;
+    for(let i=0;i<N;i++) if(cls[i]===AIR && !airwayMask[i] && !offMask[i] && !vesselMask[i]){smallAirMask[i]=1;smallAirAny=true;}
+
+    const effMask=new Uint8Array(N);
+    for(let i=0;i<N;i++){ if(airwayMask[i]||periMask[i]||artifactMask[i]||offMask[i]||vesselMask[i])continue; effMask[i]=1; }
+    let fallback='', initEff=0; for(let i=0;i<N;i++) if(effMask[i]) initEff++;
+    if(N>0 && initEff/N<0.30){
+      let cur=0; for(let i=0;i<N;i++){ effMask[i]=(airwayMask[i]||periMask[i]||offMask[i])?0:1; if(effMask[i])cur++; }
+      fallback='vessel + artifact mask dropped (would exclude >70% of ROI)';
+      if(cur/N<0.30){ cur=0; for(let i=0;i<N;i++){ effMask[i]=(airwayMask[i]||offMask[i])?0:1; if(effMask[i])cur++; }
+        fallback='peri + vessel + artifact dropped (exclusions exceeded 70% of ROI)';
+        if(cur/N<0.05){ for(let i=0;i<N;i++) effMask[i]=1; fallback='all exclusions dropped (excluded >95% of ROI)'; }
+      }
+    }
+
+    let eff=0,eAir=0,eTis=0,eCol=0,eNuc=0;
+    for(let i=0;i<N;i++){ if(!effMask[i])continue; eff++;
+      const c=cls[i]; if(c===AIR)eAir++; else if(c===COL)eCol++; else if(c===NUC)eNuc++; else eTis++; }
+    const eTissue=eTis+eCol+eNuc;
+
+    let wallMedian=0, massCount=0;
+    if(eTissue>0 && smallAirAny){
+      const dtAir=distanceTransform(smallAirMask,rw,rh), histMax=100, hist=new Int32Array(histMax+1);
+      let n=0;
+      for(let i=0;i<N;i++){ if(!effMask[i]||cls[i]===AIR)continue;
+        const dist=Math.min(histMax,dtAir[i]); n++; hist[Math.round(dist)]++; if(dist>P.massDist) massCount++; }
+      let cum=0; for(let b=0;b<=histMax;b++){ cum+=hist[b]; if(cum>=n/2){wallMedian=b;break;} }
+    } else if(eTissue>0){ massCount=eTissue; wallMedian=100; }
+
+    rec.metrics={
+      total:N, effective:eff, effectivePct:N?100*eff/N:0,
+      airwayCount, airwayPx:countMask(airwayMask), vesselPx:countMask(vesselMask),
+      periPx:countMask(periMask), offSlidePx:countMask(offMask), artifactPx:countMask(artifactMask),
+      airspacePct: eff?100*eAir/eff:0,
+      tissuePct:   eff?100*eTissue/eff:0,
+      collagenOfTissue: eTissue?100*eCol/eTissue:0,
+      collagenOfEff: eff?100*eCol/eff:0,
+      massFrac: eff?100*massCount/eff:0,
+      wallMedian, medianAlveolus:medianAlv,
+      rw, rh, x0, y0, ascale,
+      cls, airwayMask, vesselMask, periMask, artifactMask, offMask, effMask,
+      fallback, useDeconv, umPerPx, scaleBarFound
+    };
+    rec.est=estimate(rec.metrics);
+  }
+  function reEstimateAll(){imgs.forEach(r=>{if(r.metrics) r.est=estimate(r.metrics);});}
+
+  function renderStrip(){
+    stripEl.innerHTML='';
+    imgs.forEach((r)=>{
+      const div=document.createElement('div');div.className='thumb'+(r.id===curId?' active':'');
+      const estChip=(!blind&&r.est)?'~'+r.est.grade:'';
+      const labChip=r.ash!==''?`<b style="color:var(--ink)"> /${r.ash}</b>`:'';
+      div.innerHTML=`<img src="${r.thumb}">
+        <div><div class="nm">${esc(r.name)}</div><div class="mini">${r.w}×${r.h}${r.roi?' · ROI':''}</div></div>
+        <span class="sc">${estChip}${labChip}</span>
+        <button class="rm" title="remove">×</button>`;
+      div.onclick=e=>{if(e.target.classList.contains('rm'))remove(r.id);else select(r.id);};
+      stripEl.appendChild(div);
+    });
+    updateNav();
+  }
+  function select(id){
+    curId=id; if(activeSheet) activeSheet.curId=id;
+    const r=cur();
+    fnameEl.textContent=r?r.name:'—';
+    ashEl.value=r?r.ash:''; regionEl.value=r?r.region:''; notesEl.value=r?r.notes:'';
+    $('barUm').value = r && r.barUmOverride ? r.barUmOverride : G.barUm;
+    const sa=$('scaleAutoLbl');
+    if(r && r.metrics){
+      if(r.scaleBarFound){
+        const um=(r.barUmOverride||G.barUm);
+        sa.innerHTML=`detected <b>${Math.round(r.scaleBar.fullLen)} px</b> → <b>${r.umPerPx.toFixed(3)}</b> µm/px`;
+        sa.style.color='var(--good)';
+      } else { sa.innerHTML=`not detected — lengths shown in px`; sa.style.color='var(--bad)'; }
+    } else { sa.textContent='—'; sa.style.color='var(--muted)'; }
+    if(r&&r.roi)roitxtEl.textContent=`${r.roi.w}×${r.roi.h} px at (${r.roi.x}, ${r.roi.y})`; else roitxtEl.textContent='full image';
+    renderStrip();drawView();renderMetrics();renderTableActive();updateNav();
+  }
+  function cur(){return imgs.find(x=>x.id===curId)||null;}
+
+  function drawView(){
+    const r=cur();
+    if(!r){emptyEl.style.display='';viewEl.style.display='none';roihintEl.style.display='none';$('scaletag').classList.remove('found');return;}
+    emptyEl.style.display='none';viewEl.style.display='';roihintEl.style.display='';
+    const maxW=areaEl.clientWidth||700, maxH=Math.max(360,(window.innerHeight||800)*0.82);
+    let dispW=Math.min(r.w,maxW), dispH=r.h*(dispW/r.w);
+    if(dispH>maxH){ dispH=maxH; dispW=r.w*(dispH/r.h); }
+    dispW=Math.round(dispW); dispH=Math.round(dispH);
+    const dispScale=dispW/r.w;
+    viewEl.width=dispW;viewEl.height=dispH;viewEl._dispScale=dispScale;
+    vctx.drawImage(r.full,0,0,dispW,dispH);
+    if(viewMode==='overlay') drawOverlay(r,dispScale);
+    if(r.scaleBar){
+      const sb=r.scaleBar.analysis;
+      const sx=(sb.x0*r.ascale)*dispScale, sxe=((sb.x1+1)*r.ascale)*dispScale, sy=(sb.y*r.ascale)*dispScale;
+      vctx.save();vctx.strokeStyle='#7dd3c0';vctx.lineWidth=2;vctx.strokeRect(sx-3,sy-22,(sxe-sx)+6,26);vctx.restore();
+    }
+    if(r.roi){
+      vctx.save();vctx.strokeStyle='#146b7e';vctx.lineWidth=2;vctx.setLineDash([6,4]);
+      vctx.strokeRect(r.roi.x*dispScale,r.roi.y*dispScale,r.roi.w*dispScale,r.roi.h*dispScale);
+      vctx.fillStyle='rgba(34,38,43,.32)';
+      vctx.fillRect(0,0,dispW,r.roi.y*dispScale);
+      vctx.fillRect(0,(r.roi.y+r.roi.h)*dispScale,dispW,dispH);
+      vctx.fillRect(0,r.roi.y*dispScale,r.roi.x*dispScale,r.roi.h*dispScale);
+      vctx.fillRect((r.roi.x+r.roi.w)*dispScale,r.roi.y*dispScale,dispW,r.roi.h*dispScale);
+      vctx.restore();
+    }
+    const tag=$('scaletag');
+    if(r.scaleBarFound){tag.textContent=`${r.umPerPx.toFixed(3)} µm/px`;tag.classList.add('found');}
+    else tag.classList.remove('found');
+  }
+  function drawOverlay(r,dispScale){
+    const m=r.metrics;if(!m)return;
+    const oc=document.createElement('canvas');oc.width=m.rw;oc.height=m.rh;
+    const octx=oc.getContext('2d');const od=octx.createImageData(m.rw,m.rh);
+    const cls=m.cls, aw=m.airwayMask, ve=m.vesselMask, pe=m.periMask, ar=m.artifactMask, of=m.offMask;
+    for(let i=0;i<cls.length;i++){
+      const o=i*4; let R,Gg,B,A=220; const c=cls[i];
+      if(c===AIR){R=239;Gg=236;B=228;A=110;}
+      else if(c===COL){R=31;Gg=122;B=156;}
+      else if(c===NUC){R=106;Gg=77;B=138;}
+      else{R=194;Gg=91;B=134;}
+      if(showExcl){
+        if(of[i]){R=207;Gg=202;B=187;A=215;}
+        else if(aw[i]){R=74;Gg=74;B=82;A=220;}
+        else if(ve[i]){R=138;Gg=58;B=58;A=215;}
+        else if(pe[i]){R=Math.round(R*0.4+214*0.6);Gg=Math.round(Gg*0.4+185*0.6);B=Math.round(B*0.4+72*0.6);A=215;}
+        else if(ar[i]){R=Math.round(R*0.35+160*0.65);Gg=Math.round(Gg*0.35+73*0.65);B=Math.round(B*0.35+160*0.65);A=215;}
+      }
+      od.data[o]=R;od.data[o+1]=Gg;od.data[o+2]=B;od.data[o+3]=A;
+    }
+    octx.putImageData(od,0,0);
+    vctx.save();vctx.imageSmoothingEnabled=false;vctx.globalAlpha=0.92;
+    const sx=(m.x0*r.ascale)*dispScale, sy=(m.y0*r.ascale)*dispScale;
+    vctx.drawImage(oc,sx,sy,m.rw*r.ascale*dispScale,m.rh*r.ascale*dispScale);
+    vctx.restore();
+  }
+
+  function renderMetrics(){
+    const r=cur(),m=r&&r.metrics, useBtn=$('useest');
+    if(!m){
+      ['m_tis','m_air','m_col','m_mass','m_wt','m_eff'].forEach(i=>$(i).textContent='—');
+      $('pxnote').textContent='—';
+      $('compbar').innerHTML='<i style="background:var(--air);width:100%"></i>';
+      $('estgrade').textContent='—';$('estcont').textContent='';
+      $('estwhy').textContent=r?'metrics not computed':'add an image to estimate';
+      useBtn.disabled=true;showWarn('');return;
+    }
+    $('m_tis').textContent=m.tissuePct.toFixed(1)+'%';
+    $('m_air').textContent=m.airspacePct.toFixed(1)+'%';
+    $('m_col').textContent=m.collagenOfTissue.toFixed(1)+'%';
+    $('m_mass').textContent=m.massFrac.toFixed(1)+'%';
+    $('m_wt').innerHTML = m.umPerPx ? `${(m.wallMedian*m.ascale*m.umPerPx).toFixed(1)} <small>µm</small>` : `${m.wallMedian.toFixed(1)} <small>px</small>`;
+    $('m_eff').textContent=m.effectivePct.toFixed(1)+'%';
+
+    const e=r.est||estimate(m);
+    $('estgrade').textContent=e?e.grade:'—';
+    $('estcont').textContent=e?`(${e.cont.toFixed(1)})`:'';
+    $('estwhy').textContent=e?e.why:'';
+    useBtn.disabled=!e;
+    showWarn(m.fallback ? ('safety fallback: '+m.fallback) : '');
+
+    const air=m.airspacePct, colp=m.collagenOfEff, tisp=Math.max(0,100-air-colp);
+    $('compbar').innerHTML=`<i style="background:var(--air);width:${air}%"></i><i style="background:var(--tissue);width:${tisp}%"></i><i style="background:var(--collagen);width:${colp}%"></i>`;
+
+    $('pxnote').textContent=`${m.effective.toLocaleString()} px analyzed (${m.effectivePct.toFixed(1)}% of ROI; excluded ${m.airwayCount} airway${m.airwayCount===1?'':'s'}, vessels ${m.vesselPx.toLocaleString()} px, peri ${m.periPx.toLocaleString()} px, off-slide ${m.offSlidePx.toLocaleString()} px).${m.useDeconv?'':' Stain weak → HSV fallback.'}`;
+  }
+
+  function renderTable(){
+    if(!imgs.length){
+      tbodyEl.innerHTML='<tr><td colspan="10" class="l" style="color:var(--faint)">No images in this sheet yet.</td></tr>';
+      renderSheetSummary();return;
+    }
+    tbodyEl.innerHTML='';
+    imgs.forEach((r,i)=>{
+      const m=r.metrics;const tr=document.createElement('tr');if(r.id===curId)tr.className='active';
+      const lab=esc(r.name)+(r.region?` · ${esc(r.region)}`:'');
+      const est=r.est?r.est.grade:null;
+      const mismatch=(!blind && est!=null && r.ash!=='' && Math.abs(est-(+r.ash))>=2);
+      const estCell=blind?'<td class="mono est-col" style="color:var(--faint)">·</td>'
+        :`<td class="mono est-col" style="color:var(--accent)">${est!=null?est:'–'}</td>`;
+      tr.innerHTML=`<td class="l">${i+1}</td><td class="l">${lab}</td>
+        ${estCell}
+        <td class="mono"${mismatch?' style="color:var(--tissue);font-weight:600"':''}>${r.ash!==''?r.ash:'–'}</td>
+        <td class="mono">${m?m.tissuePct.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.airspacePct.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.collagenOfTissue.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.massFrac.toFixed(1):'–'}</td>
+        <td class="mono">${m?m.effectivePct.toFixed(0):'–'}</td>
+        <td><button class="rm" style="border:none;background:none;color:var(--faint);cursor:pointer">×</button></td>`;
+      tr.onclick=e=>{if(e.target.classList.contains('rm'))remove(r.id);else select(r.id);};
+      tbodyEl.appendChild(tr);
+    });
+    renderSheetSummary();
+  }
+  function renderTableActive(){[...tbodyEl.children].forEach((tr,i)=>{tr.className=(imgs[i]&&imgs[i].id===curId)?'active':'';});}
+  function renderSheetSummary(){
+    const el=$('sheetSummary'); if(blind||!imgs.length){el.innerHTML='';return;}
+    const ests=imgs.filter(r=>r.est).map(r=>r.est.cont);
+    const labs=imgs.filter(r=>r.ash!=='').map(r=>+r.ash);
+    const mean=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null;
+    const me=mean(ests), ml=mean(labs);
+    el.innerHTML=(me!=null?`<span class="pill">mouse mean (est.)<b>${me.toFixed(2)}</b></span>`:'')
+      +(ml!=null?`<span class="pill">mouse mean (lab)<b>${ml.toFixed(2)}</b></span>`:'')
+      +`<span class="pill">fields<b>${imgs.length}</b></span>`
+      +(labs.length?`<span class="pill">scored<b>${labs.length}</b></span>`:'');
+  }
+
+  // ---------- ROI drag ----------
+  function evtPos(e){const rct=viewEl.getBoundingClientRect();const cx=(e.touches?e.touches[0].clientX:e.clientX)-rct.left;const cy=(e.touches?e.touches[0].clientY:e.clientY)-rct.top;return{x:cx,y:cy};}
+  function startDrag(e){const r=cur();if(!r)return;e.preventDefault();const p=evtPos(e);dragging={sx:p.x,sy:p.y,scale:viewEl._dispScale};}
+  function moveDrag(e){if(!dragging)return;const p=evtPos(e);
+    const x=Math.min(dragging.sx,p.x),y=Math.min(dragging.sy,p.y),w=Math.abs(p.x-dragging.sx),h=Math.abs(p.y-dragging.sy);
+    drawView();vctx.save();vctx.strokeStyle='#146b7e';vctx.lineWidth=2;vctx.setLineDash([6,4]);vctx.strokeRect(x,y,w,h);vctx.restore();}
+  function endDrag(e){if(!dragging)return;const r=cur();const p=evtPos(e);const sc=dragging.scale;
+    const x=Math.min(dragging.sx,p.x)/sc,y=Math.min(dragging.sy,p.y)/sc,w=Math.abs(p.x-dragging.sx)/sc,h=Math.abs(p.y-dragging.sy)/sc;
+    dragging=null;
+    if(w*sc<6||h*sc<6) return;
+    r.roi={x:Math.round(Math.max(0,x)),y:Math.round(Math.max(0,y)),w:Math.round(Math.min(r.w,w)),h:Math.round(Math.min(r.h,h))};
+    roitxtEl.textContent=`${r.roi.w}×${r.roi.h} px at (${r.roi.x}, ${r.roi.y})`;
+    safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();
+  }
+  function remove(id){
+    const idx=imgs.findIndex(x=>x.id===id); if(idx>=0) imgs.splice(idx,1);
+    if(curId===id){ curId=imgs.length?imgs[0].id:null; if(activeSheet)activeSheet.curId=curId; }
+    renderSheetSelect(); renderImagesHeader(); renderStrip();
+    select(curId); renderTable();
+  }
+  function recomputeAll(){imgs.forEach(safeCompute);drawView();renderMetrics();renderTable();renderStrip();}
+
+  // ---------- export ----------
+  const CSV_HDR=['index','sheet','filename','region_label',
+    'ashcroft_estimated','ashcroft_continuous','ashcroft_manual_lab','scored_blinded',
+    'tissue_pct_of_analyzed','airspace_pct_of_analyzed','collagen_pct_of_tissue','collagen_pct_of_analyzed',
+    'fibrotic_mass_pct','wall_thickness_um_median','wall_thickness_px_median',
+    'analyzed_pct_of_roi','px_analyzed','px_airway','px_vessel','px_peri_airway','px_off_slide','airway_count',
+    'um_per_px','scale_bar_px','scale_bar_um','stain_fallback_hsv','safety_fallback',
+    'roi_x','roi_y','roi_w','roi_h','image_w','image_h',
+    'thr_whiteV','thr_whiteS','thr_collagen','thr_nuclei','airway_relative_mult','peri_airway_buffer_px',
+    'score_a','score_b','score_c','notes','exported_at'];
+  function csvCell(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+  function fx(v){return (v==null||isNaN(v)||!isFinite(v))?'':(+v).toFixed(2);}
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+  function exportRows(list, sheetName, ts){
+    return list.map((r,i)=>{
+      const m=r.metrics||{};const roi=r.roi||{x:'',y:'',w:'',h:''};
+      const est=r.est?r.est.grade:''; const estC=r.est?r.est.cont:'';
+      const um=m.umPerPx;
+      const wallUm=(um&&m.wallMedian!=null)?(m.wallMedian*m.ascale*um):'';
+      return [i+1,sheetName,r.name,r.region,est,fx(estC),r.ash,blind?1:0,
+        fx(m.tissuePct),fx(m.airspacePct),fx(m.collagenOfTissue),fx(m.collagenOfEff),
+        fx(m.massFrac),fx(wallUm),fx(m.wallMedian),
+        fx(m.effectivePct),m.effective||'',m.airwayPx||0,m.vesselPx||0,m.periPx||0,m.offSlidePx||0,m.airwayCount||0,
+        um?um.toFixed(4):'',m.scaleBar?Math.round(m.scaleBar.fullLen):'',(r.barUmOverride||G.barUm),m.useDeconv?0:1,m.fallback||'',
+        roi.x,roi.y,roi.w,roi.h,r.w,r.h,
+        P.whiteV,P.whiteS,P.colOd,P.nucOd,P.awMult,P.periBuf,
+        S.a,S.b,S.c,r.notes,ts].map(csvCell).join(',');
+    });
+  }
+  function download(rows, tag){
+    const ts=new Date().toISOString();
+    const blob=new Blob([CSV_HDR.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    const safe=tag.replace(/[^A-Za-z0-9._-]+/g,'_').slice(0,40);
+    a.download='trichrome_quant_'+safe+'_'+ts.slice(0,19).replace(/[:T]/g,'-')+'.csv';a.click();
+  }
+  function exportCSV(){
+    if(!imgs.length){alert('No images in this sheet to export.');return;}
+    download(exportRows(imgs, activeSheet.name, new Date().toISOString()), 'sheet_'+activeSheet.name);
+  }
+  function exportAllCSV(){
+    const ts=new Date().toISOString(); let rows=[];
+    sheets.forEach(s=>{ rows=rows.concat(exportRows(s.imgs, s.name, ts)); });
+    if(!rows.length){alert('No images in any sheet to export.');return;}
+    download(rows, 'all_sheets');
+  }
+
+  // ---------- scale bar controls ----------
+  function applyBarOne(){
+    const r=cur(); if(!r) return;
+    const v=parseFloat($('barUm').value);
+    if(isNaN(v)||v<=0){alert('Enter the scale-bar length in µm (e.g. 200).');return;}
+    r.barUmOverride=v; safeCompute(r); drawView(); renderMetrics(); renderTable(); renderStrip(); select(r.id);
+  }
+  function applyBarAll(){
+    const v=parseFloat($('barUm').value);
+    if(isNaN(v)||v<=0){alert('Enter the scale-bar length in µm (e.g. 200).');return;}
+    G.barUm=v; imgs.forEach(r=>{r.barUmOverride=null;}); recomputeAll(); select(curId);
+  }
+
+  // ---------- bindings ----------
+  fileEl.onchange=e=>{addFiles(e.target.files);fileEl.value='';};
+  ;['dragover','dragenter'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.add('hot');}));
+  ;['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.remove('hot');}));
+  dropEl.addEventListener('drop',e=>{if(e.dataTransfer.files.length)addFiles(e.dataTransfer.files);});
+
+  $('clearAll').onclick=clearAllImages;
+  $('prevBtn').onclick=()=>nav(-1);
+  $('nextBtn').onclick=()=>nav(1);
+  sheetSelEl.onchange=e=>switchSheet(e.target.value);
+  $('newSheet').onclick=newSheet;
+  $('renameSheet').onclick=renameSheet;
+  $('delSheet').onclick=deleteSheet;
+
+  $('viewseg').onclick=e=>{const b=e.target.closest('button');if(!b||!b.dataset.v)return;
+    viewMode=b.dataset.v;[...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x.dataset.v===viewMode));drawView();};
+  $('showExcl').onchange=e=>{showExcl=e.target.checked;drawView();};
+  $('roireset').onclick=()=>{const r=cur();if(!r)return;r.roi=null;roitxtEl.textContent='full image';safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();};
+  $('barApplyOne').onclick=applyBarOne;
+  $('barApplyAll').onclick=applyBarAll;
+  ashEl.onchange=()=>{const r=cur();if(!r)return;r.ash=ashEl.value;renderStrip();renderTable();};
+  regionEl.oninput=()=>{const r=cur();if(r){r.region=regionEl.value;}};
+  regionEl.onblur=()=>renderTable();
+  notesEl.oninput=()=>{const r=cur();if(r)r.notes=notesEl.value;};
+  $('export').onclick=exportCSV;
+  $('exportAll').onclick=exportAllCSV;
+  $('recalcAll').onclick=recomputeAll;
+  $('useest').onclick=()=>{const r=cur();if(!r||!r.est)return;r.ash=String(r.est.grade);ashEl.value=r.ash;renderStrip();renderTable();};
+  $('revealBtn').onclick=()=>setBlind(false);
+  $('rehideBtn').onclick=()=>setBlind(true);
+
+  function setBlind(b){ blind=!!b; document.body.classList.toggle('blind',blind); renderTable(); renderStrip(); renderMetrics(); }
+
+  // scoring calibration
+  function refreshScoreLabels(){ $('lca').textContent=S.a; $('lcb').textContent=S.b; $('lcc').textContent=S.c; }
+  function applyScore(){reEstimateAll();renderMetrics();renderTable();renderStrip();}
+  $('m_a').oninput=()=>{const v=parseFloat($('m_a').value);if(!isNaN(v)){S.a=v;refreshScoreLabels();applyScore();}};
+  $('m_b').oninput=()=>{const v=parseFloat($('m_b').value);if(!isNaN(v)){S.b=v;refreshScoreLabels();applyScore();}};
+  $('m_c').oninput=()=>{const v=parseFloat($('m_c').value);if(!isNaN(v)){S.c=v;refreshScoreLabels();applyScore();}};
+  $('m_reset').onclick=()=>{Object.assign(S,Sdef);$('m_a').value=S.a;$('m_b').value=S.b;$('m_c').value=S.c;refreshScoreLabels();applyScore();};
+
+  function bindSlider(id, key, labId, fmt){
+    const el=$(id);
+    el.oninput=()=>{ P[key]=parseFloat(el.value); $(labId).textContent=fmt(el.value);
+      const r=cur();if(r){safeCompute(r);drawView();renderMetrics();renderTable();renderStrip();} };
+  }
+  bindSlider('whiteV','whiteV','lwv',v=>(+v).toFixed(2));
+  bindSlider('whiteS','whiteS','lws',v=>(+v).toFixed(2));
+  bindSlider('colOd','colOd','lcol',v=>(+v).toFixed(2));
+  bindSlider('nucOd','nucOd','lnuc',v=>(+v).toFixed(2));
+  bindSlider('awMult','awMult','lawm',v=>(+v).toFixed(1)+'×');
+  bindSlider('periBuf','periBuf','lpb',v=>v+' px');
+  $('vessExcl').onchange=e=>{P.vessExcl=e.target.checked;recomputeAll();};
+  $('offExcl').onchange=e=>{P.offExcl=e.target.checked;recomputeAll();};
+  $('artMask').onchange=e=>{P.artMask=e.target.checked;recomputeAll();};
+
+  viewEl.addEventListener('mousedown',startDrag);window.addEventListener('mousemove',moveDrag);window.addEventListener('mouseup',endDrag);
+  viewEl.addEventListener('touchstart',startDrag,{passive:false});viewEl.addEventListener('touchmove',moveDrag,{passive:false});viewEl.addEventListener('touchend',endDrag);
+  window.addEventListener('resize',()=>{drawView();});
+
+  window.addEventListener('keydown',e=>{
+    const t=document.activeElement, tag=t&&t.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;
+    if(e.key==='ArrowLeft'){nav(-1);e.preventDefault();}
+    else if(e.key==='ArrowRight'){nav(1);e.preventDefault();}
+  });
+  window.addEventListener('error',e=>{showErr('uncaught: '+e.message+(e.filename?` @ ${e.filename}:${e.lineno}`:''));});
+
+  // init
+  sheets.push(makeSheet('Sheet 1'));
+  useSheet(sheets[0]);
+  renderSheetSelect(); renderImagesHeader();
+  refreshScoreLabels();
+  setBlind(true);
+  updateNav();
+})();
+</script>
+</body>
+</html>
